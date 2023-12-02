@@ -18,10 +18,11 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   constructor(geometry: G, material: M, count: number, type?: EntityCallback, color?: ColorRepresentation, shared?: SharedData[], visible?: boolean);
   constructor(geo: G, mat: M, count: number, type: Entity = InstancedEntity, color?: ColorRepresentation, shared: SharedData[] = new Array(0), visible = true) {
     super(geo, mat, count);
-    color = _c.set(color); // improve this.. will always instance color array
-    if (visible === false) this.count = 0; // set also this.visible = false?
+    if (color !== undefined) color = _c.set(color);
+    if (visible === false) this.count = 0;
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
+    //cannnot handle visible in cosntructor.. fix 
 
     if (type.prototype) {
       for (let i = 0; i < count; i++) {

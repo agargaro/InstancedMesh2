@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { BoxGeometry, InstancedBufferAttribute, NearestFilter, Scene, Texture, TextureLoader } from 'three';
 import { InstancedMesh2 } from './InstancedMesh2';
 import { TileMaterial } from './TileMaterial';
+import { InstancedEntity } from './InstancedEntity';
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 const scene = new Scene();
@@ -16,16 +17,16 @@ texture.magFilter = NearestFilter;
 const size = 64;
 const count = size ** 2;
 const geometry = new BoxGeometry();
-const offset = new Uint16Array(count * 2);
+const offset = new Uint8Array(count * 2);
 geometry.setAttribute('offset', new InstancedBufferAttribute(offset, 2));
 
-const boxes = new InstancedMesh2(geometry, new TileMaterial(texture, 16, 16), count, (obj, index) => {
-  obj.position.x = Math.floor((index - count / 2) / size);
-  obj.position.z = (index % size) - size / 2;
-  obj.position.y = Math.floor(Math.cos(index / 10) * 4);
+const boxes = new InstancedMesh2(geometry, new TileMaterial(texture, 16, 16), count, (obj: InstancedEntity, index: number) => {
+  obj.position.set(Math.floor((index - count / 2) / size), Math.floor(Math.cos(index / 10) * 4), (index % size) - size / 2);
   obj.updateMatrix();
   offset[index * 2] = Math.floor(Math.random() * 2);
   offset[index * 2 + 1] = 14 + Math.floor(Math.random() * 2);
 });
+
+boxes.on('animate', (e) => boxes.instances[Math.floor(Math.random() * count)].visible = false); // three.ez event
 
 scene.add(boxes);
