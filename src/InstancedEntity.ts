@@ -17,23 +17,19 @@ export class InstancedEntity extends EventDispatcher {
   public declare type: 'InstancedEntity';
   public declare isInstanceEntity: true;
   public parent: InstancedMesh2;
-  public instanceId: number;
   public readonly position: Vector3;
   public readonly scale: Vector3;
   public readonly quaternion: Quaternion;
+  /** @internal */ public _internalId: number;
   /** @internal */ public _visible: boolean;
 
-  public get visible(): boolean {
-    return this._visible;
-  }
-  public set visible(value: boolean) {
-    this.parent.setInstanceVisibility(this, value);
-  }
+  public get visible(): boolean { return this._visible }
+  public set visible(value: boolean) { this.parent.setInstanceVisibility(this, value) }
 
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible = true) {
     super();
     this.parent = parent;
-    this.instanceId = index;
+    this._internalId = index;
     this._visible = visible;
     if (color !== undefined) this.setColor(color);
 
@@ -51,27 +47,27 @@ export class InstancedEntity extends EventDispatcher {
 
   public setColor(color: ColorRepresentation): void {
     const parent = this.parent;
-    parent.setColorAt(this.instanceId, _c.set(color));
+    parent.setColorAt(this._internalId, _c.set(color));
     parent.instanceColor.needsUpdate = true;
   }
 
   public getColor(color = _c): Color {
-    this.parent.getColorAt(this.instanceId, color);
+    this.parent.getColorAt(this._internalId, color);
     return color;
   }
 
   public updateMatrix(): void {
     this.composeToArray();
-    this.parent.instanceMatrix.needsUpdate = true;
+    this.parent.instanceMatrix.needsUpdate = true; // force it manually?
   }
 
-  // updated to r158 Matrix4.ts
+  // updated to r159 Matrix4.ts
   protected composeToArray(): void {
     const te = this.parent.instanceMatrix.array;
     const position = this.position;
     const quaternion = this.quaternion as any;
     const scale = this.scale;
-    const offset = this.instanceId * 16;
+    const offset = this._internalId * 16;
 
     const x = quaternion._x,
       y = quaternion._y,
@@ -120,7 +116,7 @@ export class InstancedEntity extends EventDispatcher {
     _m.compose(this.position, this.quaternion, this.scale); // or get it from array but is not updated
     _m.premultiply(m);
     _m.decompose(this.position, this.quaternion, this.scale);
-    parent.setMatrixAt(this.instanceId, _m);
+    parent.setMatrixAt(this._internalId, _m);
     parent.instanceMatrix.needsUpdate = true;
     return this;
   }
