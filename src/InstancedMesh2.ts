@@ -1,4 +1,4 @@
-import { Color, ColorRepresentation, InstancedMesh, Material, BufferGeometry, InstancedBufferAttribute } from 'three';
+import { Color, ColorRepresentation, InstancedMesh, Material, BufferGeometry, InstancedBufferAttribute, Box3, Vector3, Object3D, Matrix4 } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
 
 type EntityType = typeof InstancedEntity & (new (parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible?: boolean) => InstancedEntity);
@@ -105,3 +105,93 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
 
 InstancedMesh2.prototype.isInstancedMesh2 = true;
 InstancedMesh2.prototype.type = 'InstancedMesh2';
+
+const _center = new Vector3();
+const _dir = new Vector3();
+const _size = new Vector3();
+const _bboxMax = new Box3();
+const _bbox = new Box3();
+const _box3 = new Box3();
+const _matrix = new Matrix4();
+
+export function computeBoundingBox(instancedMesh: InstancedMesh2): void {
+  const geometry = instancedMesh.geometry;
+  const count = instancedMesh.count;
+
+  if (instancedMesh.boundingBox === null) {
+    instancedMesh.boundingBox = new Box3();
+  }
+  if (geometry.boundingBox === null) {
+    geometry.computeBoundingBox();
+  }
+  instancedMesh.boundingBox.makeEmpty();
+
+  _bboxMax.copy(geometry.boundingBox);
+  _bboxMax.getCenter(_center);
+  _dir.subVectors(_bboxMax.max, _center);
+  const max = Math.max(_dir.x, _dir.y, _dir.z);
+  _dir.set(max, max, max)
+  _bboxMax.min.subVectors(_center, _dir); // _bboxMax opt 
+  _bboxMax.max.addVectors(_center, _dir);
+  _bboxMax.getSize(_size); // size is max * 2?
+
+  const objToCheck: number[] = []; // array di count size?
+  let found = false;
+
+  let xMax = Number.MIN_SAFE_INTEGER,
+    yMax = Number.MIN_SAFE_INTEGER,
+    zMax = Number.MIN_SAFE_INTEGER,
+    xMin = Number.MAX_SAFE_INTEGER,
+    yMin = Number.MAX_SAFE_INTEGER,
+    zMin = Number.MAX_SAFE_INTEGER;
+
+  // all instances, not all visible one
+  for (let i = 0; i < count; i++) {
+    const p = instancedMesh.instances[i].position;
+    const s = instancedMesh.instances[i].scale;
+
+    if (p.x + _bboxMax.max.x * s.x > xMax) {
+      xMax = Math.max(p.x + _bboxMax.min.x * s.x);
+      found = true;
+    }
+
+    if (p.y + _bboxMax.max.y * s.y > yMax) {
+      yMax = Math.max(p.y + _bboxMax.min.y * s.y);
+      found = true;
+    }
+
+    if (p.z + _bboxMax.max.z * s.z > zMax) {
+      zMax = Math.max(p.z + _bboxMax.min.z * s.z);
+      found = true;
+    }
+
+    if (p.x + _bboxMax.min.x * s.x < xMin) {
+      xMin = Math.min(p.x + _bboxMax.max.x * s.x);
+      found = true;
+    }
+
+    if (p.y + _bboxMax.min.y * s.y < yMin) {
+      yMin = Math.min(p.y + _bboxMax.max.y * s.y);
+      found = true;
+    }
+
+    if (p.z + _bboxMax.min.z * s.z < zMin) {
+      zMin = Math.min(p.z + _bboxMax.max.z * s.z);
+      found = true;
+    }
+
+    if (found === true) {
+      objToCheck.push(i); // levare push
+      found = false;
+    }
+  }
+
+  debugger;
+
+  for (let i = 0; i < objToCheck.length; i++) {
+    // se nei limiti
+    instancedMesh.getMatrixAt(objToCheck[i], _matrix);
+    _box3.copy(geometry.boundingBox).applyMatrix4(_matrix);
+    instancedMesh.boundingBox.union(_box3);
+  }
+}
