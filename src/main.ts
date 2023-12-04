@@ -14,7 +14,7 @@ main.createView({ scene, camera, backgroundColor: 'white', enabled: false });
 const texture = await Asset.load<Texture>(TextureLoader, 'https://4.bp.blogspot.com/-WPxag7btKpI/TdmNj2tROcI/AAAAAAAAA00/twH8y--dQ24/s1600/terrain.png');
 texture.magFilter = NearestFilter;
 
-const size = 64;
+const size = 200;
 const count = size ** 2;
 const geometry = new BoxGeometry();
 const offset = new Uint8Array(count * 2);
@@ -27,6 +27,7 @@ const boxes = new InstancedMesh2(geometry, new TileMaterial(texture, 16, 16), co
   offset[index * 2 + 1] = 14 + Math.floor(Math.random() * 2);
 });
 
-boxes.on('animate', (e) => boxes.instances[Math.floor(Math.random() * count)].visible = false); // three.ez event
+// boxes.on('animate', (e) => boxes.instances[Math.floor(Math.random() * count)].visible = false); // three.ez event
+boxes.on('animate', (e) => boxes.update(camera));
 
 scene.add(boxes);

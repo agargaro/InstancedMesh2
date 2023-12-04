@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Color, ColorRepresentation, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Vector3 } from 'three';
+import { Box3, BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
 
 type EntityType = typeof InstancedEntity & (new (parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible?: boolean) => InstancedEntity);
@@ -6,6 +6,9 @@ type EntityCallback = (obj: InstancedEntity, index: number) => void;
 type Entity = EntityType | EntityCallback;
 
 const _c = new Color();
+const _frustum = new Frustum();
+const _projScreenMatrix = new Matrix4();
+const _sphere = new Sphere();
 
 export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
@@ -40,6 +43,9 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     }
 
     this.updateInstancedAttributes();
+    if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere();
+    // this.computeBoundingBox();
+    // this.frustumCulled = false; SOLO SE ATTIVANO IL FRUSTUM CULLING CUSTOM
   }
 
   private updateInstancedAttributes(): void {
@@ -100,6 +106,22 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
       array[toOffset + i] = temp;
     }
   }
+
+  public update(camera: Camera): void {
+    const instances = this._internalInstances;
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    _frustum.setFromProjectionMatrix(_projScreenMatrix);
+    const bSphere = this.geometry.boundingSphere;
+
+    for (let i = 0, l = instances.length; i < l; i++) {
+      const instance = instances[i];
+      if (!instance._visible) continue;
+      _sphere.copy(bSphere).translate(instance.position);
+      _sphere.radius *= Math.max(instance.scale.x, instance.scale.y, instance.scale.z);
+      instance._inFrustum = _frustum.intersectsSphere(_sphere);
+      // this.setInstanceVisibility(instance, instance._inFrustum); // opt
+    }
+  }
 }
 
 InstancedMesh2.prototype.isInstancedMesh2 = true;
@@ -107,8 +129,7 @@ InstancedMesh2.prototype.type = 'InstancedMesh2';
 
 const _center = new Vector3();
 const _dir = new Vector3();
-const _bboxMax = new Box3();
-const _box3 = new Box3();
+const _bbox = new Box3();
 const _matrix = new Matrix4();
 
 export function computeBoundingBox2(instancedMesh: InstancedMesh2): void {
@@ -123,24 +144,24 @@ export function computeBoundingBox2(instancedMesh: InstancedMesh2): void {
   }
   instancedMesh.boundingBox.makeEmpty();
 
-  _bboxMax.copy(geometry.boundingBox);
-  _bboxMax.getCenter(_center);
-  _dir.subVectors(_bboxMax.max, _center);
+  _bbox.copy(geometry.boundingBox);
+  _bbox.getCenter(_center);
+  _dir.subVectors(_bbox.max, _center);
   const max = Math.max(_dir.x, _dir.y, _dir.z);
   _dir.set(max, max, max);
-  _bboxMax.min.subVectors(_center, _dir); // _bboxMax opt
-  _bboxMax.max.addVectors(_center, _dir);
+  _bbox.min.subVectors(_center, _dir); // _bboxMax opt
+  _bbox.max.addVectors(_center, _dir);
 
   const objToCheck: number[] = new Array(count); // array di count size?
   let objToCheckCount = 0;
   let found = false;
 
-  const _bboxMax_max_x = _bboxMax.max.x;
-  const _bboxMax_max_y = _bboxMax.max.y;
-  const _bboxMax_max_z = _bboxMax.max.z;
-  const _bboxMax_min_x = _bboxMax.min.x;
-  const _bboxMax_min_y = _bboxMax.min.y;
-  const _bboxMax_min_z = _bboxMax.min.z;
+  const _bboxMax_max_x = _bbox.max.x;
+  const _bboxMax_max_y = _bbox.max.y;
+  const _bboxMax_max_z = _bbox.max.z;
+  const _bboxMax_min_x = _bbox.min.x;
+  const _bboxMax_min_y = _bbox.min.y;
+  const _bboxMax_min_z = _bbox.min.z;
 
   let xMax = Number.MIN_SAFE_INTEGER,
     yMax = Number.MIN_SAFE_INTEGER,
@@ -203,8 +224,8 @@ export function computeBoundingBox2(instancedMesh: InstancedMesh2): void {
       p.z + _bboxMax_min_z * s.z < zMin
     ) {
       instancedMesh.getMatrixAt(index, _matrix);
-      _box3.copy(geometry.boundingBox).applyMatrix4(_matrix);
-      instancedMesh.boundingBox.union(_box3);
+      _bbox.copy(geometry.boundingBox).applyMatrix4(_matrix);
+      instancedMesh.boundingBox.union(_bbox);
     }
   }
 }
