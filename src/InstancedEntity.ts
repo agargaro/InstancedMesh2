@@ -22,9 +22,14 @@ export class InstancedEntity extends EventDispatcher {
   public readonly quaternion: Quaternion;
   /** @internal */ public _internalId: number;
   /** @internal */ public _visible: boolean;
+  /** @internal */ public _inFrustum: boolean; // default true?
+
 
   public get visible(): boolean { return this._visible }
-  public set visible(value: boolean) { this.parent.setInstanceVisibility(this, value) }
+  public set visible(value: boolean) {
+    this.parent.setInstanceVisibility(this, value);
+    this._visible = value;
+  }
 
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible = true) {
     super();

@@ -57,16 +57,14 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   }
 
   public setInstanceVisibility(instance: InstancedEntity, value: boolean): void {
-    if (value === instance._visible) return;
+    if (value === instance._visible && instance._inFrustum) return;
     if (value === true) {
-      //TODO this can me improved
       this.swapInstance(instance, this.count);
       this.count++;
     } else {
       this.swapInstance(instance, this.count - 1);
       this.count--;
     }
-    instance._visible = value;
   }
 
   private swapInstance(instance: InstancedEntity, idTo: number): void {
@@ -113,7 +111,7 @@ const _bboxMax = new Box3();
 const _box3 = new Box3();
 const _matrix = new Matrix4();
 
-export function computeBoundingBox(instancedMesh: InstancedMesh2): void {
+export function computeBoundingBox2(instancedMesh: InstancedMesh2): void {
   const geometry = instancedMesh.geometry;
   const count = instancedMesh.count;
 
