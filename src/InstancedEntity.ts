@@ -22,7 +22,7 @@ export class InstancedEntity extends EventDispatcher {
   public readonly quaternion: Quaternion;
   /** @internal */ public _internalId: number;
   /** @internal */ public _visible: boolean;
-  /** @internal */ public _inFrustum: boolean; // default true?
+  /** @internal */ public _inFrustum = true;
 
 
   public get visible(): boolean { return this._visible }
