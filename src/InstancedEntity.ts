@@ -53,7 +53,7 @@ export class InstancedEntity extends EventDispatcher {
   public setColor(color: ColorRepresentation): void {
     const parent = this.parent;
     parent.setColorAt(this._internalId, _c.set(color));
-    parent.instanceColor.needsUpdate = true;
+    // parent.instanceColor.needsUpdate = true;
   }
 
   public getColor(color = _c): Color {
@@ -63,7 +63,7 @@ export class InstancedEntity extends EventDispatcher {
 
   public updateMatrix(): void {
     this.composeToArray();
-    this.parent.instanceMatrix.needsUpdate = true; // force it manually?
+    // this.parent.instanceMatrix.needsUpdate = true; // force it manually?
   }
 
   // updated to r159 Matrix4.ts
@@ -122,7 +122,7 @@ export class InstancedEntity extends EventDispatcher {
     _m.premultiply(m);
     _m.decompose(this.position, this.quaternion, this.scale);
     parent.setMatrixAt(this._internalId, _m);
-    parent.instanceMatrix.needsUpdate = true;
+    // parent.instanceMatrix.needsUpdate = true;
     return this;
   }
 

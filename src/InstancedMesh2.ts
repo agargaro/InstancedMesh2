@@ -33,7 +33,6 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
 
     this.updateInstancedAttributes();
     if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere();
-    // this.computeBoundingBox();
     this.frustumCulled = false; // SOLO SE ATTIVANO IL FRUSTUM CULLING CUSTOM
   }
 
@@ -63,56 +62,76 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     }
   }
 
-  private setInstancesVisibility(show: number[], hide: number[]): void {
-    let idFrom: number, idTo: number;
-    const instances = this._internalInstances;
+  private setInstancesVisibility(show: InstancedEntity[], hide: InstancedEntity[]): void {
+    // const instances = this._internalInstances;
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
 
+    show = show.sort((a, b) => a._internalId - b._internalId);
+    hide = hide.sort((a, b) => a._internalId - b._internalId);
+    // let idFrom: number, idTo: number;
+
     for (let i = 0; i < length; i++) { //opt
-      // idFrom = show[i];
-      // idTo = hide[hideLength - i];
-      // if (idFrom === idTo) return; questo non serve
-      // const instanceFrom = instances[idFrom];
-      // const instanceTo = instances[idTo]; // do bench
-      // this.swapAttributes(idFrom, idTo);
-      // instances[idTo] = instanceFrom;
-      // instances[idFrom] = instanceTo;
-      // instanceTo._internalId = idFrom;
-      // instanceFrom._internalId = idTo;
-      this.swapInstance(instances[show[i]], hide[hideLengthMinus - i]);
+      this.swapInstance(show[i], hide[hideLengthMinus - i]._internalId);
     }
+
+    this.instanceMatrix.needsUpdate = true; // TODO test
+
+    if (show.length === hide.length) return;
 
     if (show.length > hide.length) {
       for (let i = length; i < show.length; i++) {
-        this.swapInstance(instances[show[i]], this.count); // OPT
+        this.swapInstance(show[i], this.count); // OPT
         this.count++;
       }
     } else {
-      // OPT SE NASCONDE TUTTI?
-      for (let i = length; i < hide.length; i++) {
-        this.swapInstance(instances[hide[hideLengthMinus - i]], this.count - 1); // OPT 
-        this.count--;
-      }
+      this.hideInstances(hide, hide.length - length);
     }
   }
 
-  private swapInstance(instanceFrom: InstancedEntity, idTo: number): boolean {
+  private hideInstances(entities: InstancedEntity[], count: number): void {     // OPT SE NASCONDE TUTTI?
+    const instances = this._internalInstances;
+    let idFrom: number, idTo: number;
+    let instanceFrom: InstancedEntity, instanceTo: InstancedEntity;
+    let startIndex = 0;
+    let endIndex = count - 1;
+
+    while (endIndex >= startIndex) {
+      if (entities[endIndex]._internalId === this.count - 1) {
+        endIndex--;
+      } else {
+        idFrom = entities[startIndex]._internalId;
+        idTo = this.count - 1;
+        if (idTo !== idFrom) { // opt
+          instanceFrom = instances[idFrom];
+          instanceTo = instances[idTo];
+          this.swapAttributes(idFrom, idTo);
+          instanceTo._internalId = idFrom;
+          instanceFrom._internalId = idTo;
+          instances[idTo] = instanceFrom;
+          instances[idFrom] = instanceTo;
+        }
+        startIndex++;
+      }
+      this.count--;
+    }
+  }
+
+  private swapInstance(instanceFrom: InstancedEntity, idTo: number): void {
     const instanceTo = this._internalInstances[idTo];
-    if (instanceFrom === instanceTo) return false;
+    if (instanceFrom === instanceTo) return;
     const idFrom = instanceFrom._internalId;
     this.swapAttributes(idFrom, idTo);
     this._internalInstances[idTo] = instanceFrom;
     this._internalInstances[idFrom] = instanceTo;
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
-    return true;
   }
 
   private swapAttributes(idFrom: number, idTo: number): void {
     for (const attr of this.instancedAttributes) {
       this.swapAttribute(attr, idTo, idFrom);
-      attr.needsUpdate = true; // consider to force user to update it manually
+      // attr.needsUpdate = true; // consider to force user to update it manually
     }
   }
 
@@ -135,25 +154,27 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   public updateCulling(camera: Camera): void {
     //put it on beforeRenderer
     if (this.perObjectFrustumCulled === false) return;
-    const instances = this._internalInstances;
+    const instances = this.instances;
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     _frustum.setFromProjectionMatrix(_projScreenMatrix);
     const bSphere = this.geometry.boundingSphere;
-    const show: number[] = []; // opt memory allocation
-    const hide: number[] = [];
+    const show: InstancedEntity[] = []; // opt memory allocation
+    const hide: InstancedEntity[] = [];
 
+    // console.time('update');
     for (let i = 0, l = instances.length; i < l; i++) { // this can be opt to avoid visible check, using more memory...
       const instance = instances[i];
       if (!instance._visible) continue;
       _sphere.copy(bSphere).translate(instance.position);
       _sphere.radius *= Math.max(instance.scale.x, instance.scale.y, instance.scale.z); // opt
       if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-        if (instance._inFrustum === true) show.push(i);
-        else hide.push(i)
+        if (instance._inFrustum === true) show.push(instance);
+        else hide.push(instance)
       }
     }
+    // console.timeEnd('update');
 
-    this.setInstancesVisibility(show, hide);
+    if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
   }
 }
 
