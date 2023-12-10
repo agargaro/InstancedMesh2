@@ -1,4 +1,4 @@
-import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere } from 'three';
+import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
 
 type EntityCallback = (obj: InstancedEntity, index: number) => void;
@@ -7,6 +7,7 @@ const _color = new Color();
 const _frustum = new Frustum();
 const _projScreenMatrix = new Matrix4();
 const _sphere = new Sphere();
+const _m = new Matrix4();
 
 export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
@@ -15,6 +16,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   public instancedAttributes: InstancedBufferAttribute[];
   public perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: InstancedEntity[];
+  private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
 
   constructor(geometry: G, material: M, count: number, onCreateEntity?: EntityCallback, color?: ColorRepresentation, shared: SharedData[] = [], visible = true) {
     super(geometry, material, count);
@@ -52,7 +54,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
 
   /** @internal */
   public setInstanceVisibility(instance: InstancedEntity, value: boolean): void {
-    if (value === instance._visible && instance._inFrustum) return;
+    if (value === (instance._visible && instance._inFrustum)) return; // check this
     if (value === true) {
       this.swapInstance(instance, this.count);
       this.count++;
@@ -63,36 +65,43 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   }
 
   private setInstancesVisibility(show: InstancedEntity[], hide: InstancedEntity[]): void {
-    // const instances = this._internalInstances;
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
 
-    show = show.sort((a, b) => a._internalId - b._internalId);
-    hide = hide.sort((a, b) => a._internalId - b._internalId);
-    // let idFrom: number, idTo: number;
+    show = show.sort(this._sortComparer); // check if this sort is good
+    hide = hide.sort(this._sortComparer);
 
-    for (let i = 0; i < length; i++) { //opt
-      this.swapInstance(show[i], hide[hideLengthMinus - i]._internalId);
+    for (let i = 0; i < length; i++) {
+      this.swapInstance2(show[i], hide[hideLengthMinus - i]);
     }
 
-    this.instanceMatrix.needsUpdate = true; // TODO test
+    this.needsUpdate();
 
     if (show.length === hide.length) return;
 
-    if (show.length > hide.length) {
-      for (let i = length; i < show.length; i++) {
-        this.swapInstance(show[i], this.count); // OPT
-        this.count++;
+    if (show.length > hide.length) this.showInstances(show, length);
+    else this.hideInstances(hide, hide.length - length);
+
+  }
+
+  private showInstances(entities: InstancedEntity[], count: number): void {
+    // add opt if needs to show all?
+    let startIndex = count;
+    let endIndex = entities.length - 1;
+
+    while (endIndex >= startIndex) {
+      if (entities[startIndex]._internalId === this.count) {
+        startIndex++;
+      } else {
+        this.swapInstance(entities[endIndex], this.count);
+        endIndex--;
       }
-    } else {
-      this.hideInstances(hide, hide.length - length);
+      this.count++;
     }
   }
 
-  private hideInstances(entities: InstancedEntity[], count: number): void {     // OPT SE NASCONDE TUTTI?
-    const instances = this._internalInstances;
-    let idFrom: number, idTo: number;
-    let instanceFrom: InstancedEntity, instanceTo: InstancedEntity;
+  private hideInstances(entities: InstancedEntity[], count: number): void {
+    // add opt if needs to hide all?
     let startIndex = 0;
     let endIndex = count - 1;
 
@@ -100,17 +109,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
       if (entities[endIndex]._internalId === this.count - 1) {
         endIndex--;
       } else {
-        idFrom = entities[startIndex]._internalId;
-        idTo = this.count - 1;
-        if (idTo !== idFrom) { // opt
-          instanceFrom = instances[idFrom];
-          instanceTo = instances[idTo];
-          this.swapAttributes(idFrom, idTo);
-          instanceTo._internalId = idFrom;
-          instanceFrom._internalId = idTo;
-          instances[idTo] = instanceFrom;
-          instances[idFrom] = instanceTo;
-        }
+        this.swapInstance(entities[startIndex], this.count - 1);
         startIndex++;
       }
       this.count--;
@@ -128,10 +127,20 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     instanceFrom._internalId = idTo;
   }
 
+  private swapInstance2(instanceFrom: InstancedEntity, instanceTo: InstancedEntity): void {
+    // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
+    const idFrom = instanceFrom._internalId;
+    const idTo = instanceTo._internalId;
+    this.swapAttributes(idFrom, idTo);
+    this._internalInstances[idTo] = instanceFrom;
+    this._internalInstances[idFrom] = instanceTo;
+    instanceTo._internalId = idFrom;
+    instanceFrom._internalId = idTo;
+  }
+
   private swapAttributes(idFrom: number, idTo: number): void {
     for (const attr of this.instancedAttributes) {
       this.swapAttribute(attr, idTo, idFrom);
-      // attr.needsUpdate = true; // consider to force user to update it manually
     }
   }
 
@@ -154,27 +163,55 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   public updateCulling(camera: Camera): void {
     //put it on beforeRenderer
     if (this.perObjectFrustumCulled === false) return;
-    const instances = this.instances;
+
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     _frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    const instances = this.instances;
     const bSphere = this.geometry.boundingSphere;
+    const radius = bSphere.radius;
+    const center = bSphere.center;
+
     const show: InstancedEntity[] = []; // opt memory allocation
     const hide: InstancedEntity[] = [];
 
     // console.time('update');
-    for (let i = 0, l = instances.length; i < l; i++) { // this can be opt to avoid visible check, using more memory...
+
+    for (let i = 0, l = instances.length; i < l; i++) {
       const instance = instances[i];
-      if (!instance._visible) continue;
-      _sphere.copy(bSphere).translate(instance.position);
-      _sphere.radius *= Math.max(instance.scale.x, instance.scale.y, instance.scale.z); // opt
+      if (instance._visible === false) continue;
+
+      // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
+
+      _sphere.center.addVectors(center, instance.position);
+      _sphere.radius = radius * this.getMax(instance.scale);
+
+      // this.getMatrixAt(instance._internalId, _m);
+      // _sphere.copy(bSphere).applyMatrix4(_m);
+
       if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-        if (instance._inFrustum === true) show.push(instance);
-        else hide.push(instance)
+        if (instance._inFrustum === true) show[show.length] = instance;
+        else hide[hide.length] = instance;
       }
     }
+
     // console.timeEnd('update');
 
     if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
+  }
+
+  // this is faster than Math.max(scale.x, scale.y, scale.z)
+  private getMax(scale: Vector3): number {
+    if (scale.x > scale.y) {
+      return scale.x > scale.z ? scale.x : scale.z;
+    }
+    return scale.y > scale.z ? scale.y : scale.z;
+  }
+
+  private needsUpdate(): void {
+    for (const attr of this.instancedAttributes) {
+      attr.needsUpdate = true;
+    }
   }
 }
 
