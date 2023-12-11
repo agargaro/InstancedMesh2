@@ -1,7 +1,7 @@
 import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
 
-type EntityCallback = (obj: InstancedEntity, index: number) => void;
+type EntityCallback<T> = (obj: T, index: number) => void;
 
 const _color = new Color();
 const _frustum = new Frustum();
@@ -9,16 +9,16 @@ const _projScreenMatrix = new Matrix4();
 const _sphere = new Sphere();
 const _m = new Matrix4();
 
-export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
+export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
   public declare isInstancedMesh2: true;
-  public instances: InstancedEntity[];
+  public instances: T[];
   public instancedAttributes: InstancedBufferAttribute[];
   public perObjectFrustumCulled = true;
-  /** @internal */ public _internalInstances: InstancedEntity[];
+  /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
 
-  constructor(geometry: G, material: M, count: number, onCreateEntity?: EntityCallback, color?: ColorRepresentation, shared: SharedData[] = [], visible = true) {
+  constructor(geometry: G, material: M, count: number, onCreateEntity?: EntityCallback<T>, color?: ColorRepresentation, shared: SharedData[] = [], visible = true) {
     super(geometry, material, count);
     if (color !== undefined) color = _color.set(color);
     if (visible === false) this.count = 0;
@@ -26,7 +26,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     this._internalInstances = new Array(count);
 
     for (let i = 0; i < count; i++) {
-      const instance = new InstancedEntity(this, i, color, shared[i], visible);
+      const instance = new InstancedEntity(this, i, color, shared[i], visible) as T;
       if (onCreateEntity) onCreateEntity(instance, i);
       //handle visible in onCreateEntity.. fix
       this._internalInstances[i] = instance;
@@ -53,7 +53,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
   }
 
   /** @internal */
-  public setInstanceVisibility(instance: InstancedEntity, value: boolean): void {
+  public setInstanceVisibility(instance: T, value: boolean): void {
     if (value === (instance._visible && instance._inFrustum)) return; // check this
     if (value === true) {
       this.swapInstance(instance, this.count);
@@ -64,7 +64,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     }
   }
 
-  private setInstancesVisibility(show: InstancedEntity[], hide: InstancedEntity[]): void {
+  private setInstancesVisibility(show: T[], hide: T[]): void {
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
 
@@ -84,7 +84,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
 
   }
 
-  private showInstances(entities: InstancedEntity[], count: number): void {
+  private showInstances(entities: T[], count: number): void {
     // add opt if needs to show all?
     let startIndex = count;
     let endIndex = entities.length - 1;
@@ -100,7 +100,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     }
   }
 
-  private hideInstances(entities: InstancedEntity[], count: number): void {
+  private hideInstances(entities: T[], count: number): void {
     // add opt if needs to hide all?
     let startIndex = 0;
     let endIndex = count - 1;
@@ -116,7 +116,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     }
   }
 
-  private swapInstance(instanceFrom: InstancedEntity, idTo: number): void {
+  private swapInstance(instanceFrom: T, idTo: number): void {
     const instanceTo = this._internalInstances[idTo];
     if (instanceFrom === instanceTo) return;
     const idFrom = instanceFrom._internalId;
@@ -127,7 +127,7 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     instanceFrom._internalId = idTo;
   }
 
-  private swapInstance2(instanceFrom: InstancedEntity, instanceTo: InstancedEntity): void {
+  private swapInstance2(instanceFrom: T, instanceTo: T): void {
     // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
     const idFrom = instanceFrom._internalId;
     const idTo = instanceTo._internalId;
@@ -172,8 +172,8 @@ export class InstancedMesh2<G extends BufferGeometry = BufferGeometry, M extends
     const radius = bSphere.radius;
     const center = bSphere.center;
 
-    const show: InstancedEntity[] = []; // opt memory allocation
-    const hide: InstancedEntity[] = [];
+    const show: T[] = []; // opt memory allocation
+    const hide: T[] = [];
 
     // console.time('update');
 
