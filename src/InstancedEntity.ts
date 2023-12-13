@@ -23,7 +23,7 @@ export class InstancedEntity extends EventDispatcher {
   /** @internal */ public _internalId: number;
   /** @internal */ public _visible: boolean;
   /** @internal */ public _inFrustum = true;
-
+  /** @internal */ public _needsUpdate = false;
 
   public get visible(): boolean { return this._visible }
   public set visible(value: boolean) {
@@ -50,6 +50,14 @@ export class InstancedEntity extends EventDispatcher {
     }
   }
 
+  public updateMatrix(): void {
+    this.parent.updateInstanceMatrix(this);
+  }
+
+  public forceUpdateMatrix(): void {
+    this.parent.forceUpdateInstanceMatrix(this);
+  }
+
   public setColor(color: ColorRepresentation): void {
     const parent = this.parent;
     parent.setColorAt(this._internalId, _c.set(color));
@@ -61,68 +69,11 @@ export class InstancedEntity extends EventDispatcher {
     return color;
   }
 
-  public updateMatrix(): void {
-    this.composeToArray();
-    // this.parent.instanceMatrix.needsUpdate = true; // force it manually?
-  }
-
-  // updated to r159 Matrix4.ts
-  protected composeToArray(): void {
-    const te = this.parent.instanceMatrix.array;
-    const position = this.position;
-    const quaternion = this.quaternion as any;
-    const scale = this.scale;
-    const offset = this._internalId * 16;
-
-    const x = quaternion._x,
-      y = quaternion._y,
-      z = quaternion._z,
-      w = quaternion._w;
-    const x2 = x + x,
-      y2 = y + y,
-      z2 = z + z;
-    const xx = x * x2,
-      xy = x * y2,
-      xz = x * z2;
-    const yy = y * y2,
-      yz = y * z2,
-      zz = z * z2;
-    const wx = w * x2,
-      wy = w * y2,
-      wz = w * z2;
-
-    const sx = scale.x,
-      sy = scale.y,
-      sz = scale.z;
-
-    te[offset] = (1 - (yy + zz)) * sx;
-    te[offset + 1] = (xy + wz) * sx;
-    te[offset + 2] = (xz - wy) * sx;
-    te[offset + 3] = 0;
-
-    te[offset + 4] = (xy - wz) * sy;
-    te[offset + 5] = (1 - (xx + zz)) * sy;
-    te[offset + 6] = (yz + wx) * sy;
-    te[offset + 7] = 0;
-
-    te[offset + 8] = (xz + wy) * sz;
-    te[offset + 9] = (yz - wx) * sz;
-    te[offset + 10] = (1 - (xx + yy)) * sz;
-    te[offset + 11] = 0;
-
-    te[offset + 12] = position.x;
-    te[offset + 13] = position.y;
-    te[offset + 14] = position.z;
-    te[offset + 15] = 1;
-  }
-
   public applyMatrix4(m: Matrix4): this {
-    const parent = this.parent;
     _m.compose(this.position, this.quaternion, this.scale); // or get it from array but is not updated
     _m.premultiply(m);
     _m.decompose(this.position, this.quaternion, this.scale);
-    parent.setMatrixAt(this._internalId, _m);
-    // parent.instanceMatrix.needsUpdate = true;
+    this.parent.setMatrixAt(this._internalId, _m);
     return this;
   }
 
