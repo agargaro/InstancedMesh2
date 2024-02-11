@@ -17,6 +17,7 @@ export class InstancedEntity extends EventDispatcher {
   public declare type: 'InstancedEntity';
   public declare isInstanceEntity: true;
   public parent: InstancedMesh2;
+  public readonly id: number;
   public readonly position: Vector3;
   public readonly scale: Vector3;
   public readonly quaternion: Quaternion;
@@ -33,6 +34,7 @@ export class InstancedEntity extends EventDispatcher {
 
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible = true) {
     super();
+    this.id = index;
     this.parent = parent;
     this._internalId = index;
     this._visible = visible;
@@ -59,9 +61,7 @@ export class InstancedEntity extends EventDispatcher {
   }
 
   public setColor(color: ColorRepresentation): void {
-    const parent = this.parent;
-    parent.setColorAt(this._internalId, _c.set(color));
-    // parent.instanceColor.needsUpdate = true;
+    this.parent.setColorAt(this._internalId, _c.set(color));
   }
 
   public getColor(color = _c): Color {

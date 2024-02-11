@@ -20,7 +20,13 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
   public set perObjectFrustumCulled(value: boolean) {
-    //logic
+    if (this._perObjectFrustumCulled === value) return;
+    if (value) {
+      this.enablePerObjectFrustumCulled();
+    } else {
+      this.disablePerObjectFrustumCulled();
+    }
+    this.frustumCulled = !value;
     this._perObjectFrustumCulled = value;
   }
 
@@ -42,7 +48,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     this.updateInstancedAttributes();
     if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere();
-    this.frustumCulled = false; // SOLO SE ATTIVANO IL FRUSTUM CULLING CUSTOM
+    this.frustumCulled = false;
   }
 
   private updateInstancedAttributes(): void {
@@ -297,6 +303,21 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
     this.internalCount = value;
     this.needsUpdate();
+  }
+
+  public enablePerObjectFrustumCulled(): void {
+    for (let i = 0, l = this.instances.length; i < l; i++) {
+      this.instances[i]._inFrustum = true;
+    }
+  }
+
+  public disablePerObjectFrustumCulled(): void {
+    const show: T[] = [];
+    for (let i = 0, l = this.instances.length; i < l; i++) {
+      const instance = this.instances[i];
+      if (!instance._inFrustum && instance.visible) show.push(instance);
+    }
+    this.setInstancesVisibility(show, []);
   }
 }
 

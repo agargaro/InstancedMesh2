@@ -80,7 +80,7 @@ export function computeBoundingBox2(instancedMesh: InstancedMesh2): void {
     }
 
     if (found === true) {
-      objToCheck[objToCheckCount++] = i; // levare push
+      objToCheck[objToCheckCount++] = i;
       found = false;
     }
   }
