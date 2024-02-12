@@ -13,13 +13,18 @@ controls.movementSpeed = 10;
 scene.on('animate', (e) => controls.update(e.delta));
 
 const monkeyPath = 'https://threejs.org/examples/models/json/suzanne_buffergeometry.json';
-const geometry = await Asset.load<BufferGeometry>(BufferGeometryLoader, monkeyPath);
-geometry.computeVertexNormals();
+const monkeyGeometry = await Asset.load<BufferGeometry>(BufferGeometryLoader, monkeyPath);
+monkeyGeometry.computeVertexNormals();
 
-const monkeys = new InstancedMesh2(geometry, new MeshNormalMaterial(), 50000, (obj, index) => {
-  obj.position.random().multiplyScalar(500).subScalar(250);
-  obj.quaternion.random();
-  obj.forceUpdateMatrix();
+const monkeys = new InstancedMesh2({
+  geometry: monkeyGeometry,
+  material: new MeshNormalMaterial(),
+  count: 100000,
+  onCreateEntity: (obj, index) => {
+    obj.position.random().multiplyScalar(500).subScalar(250);
+    obj.quaternion.random();
+    obj.forceUpdateMatrix();
+  }
 });
 
 scene.add(monkeys);

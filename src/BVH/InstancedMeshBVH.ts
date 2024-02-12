@@ -41,7 +41,8 @@ export class InstancedMeshBVH {
     this._target = instancedMesh;
   }
 
-  public build(strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
+  //TODO gesteire default
+  public build(visible: boolean, strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
     this._maxLeaves = maxLeaves;
     this._maxDepth = maxDepth;
 
@@ -123,27 +124,27 @@ export class InstancedMeshBVH {
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-    this._checkBox(this.root);
+    this.checkBoxVisibility(this.root);
 
     this._show = undefined;
     this._hide = undefined;
   }
 
-  private _checkBox(node: Node): void {
-    //aggiungere ottimizzazione per evitare di rifare intersectBox
-    const visibility = this._frustum.intesectsBox(node.bbox);
+  private checkBoxVisibility(node: Node, force?: VisibilityState): void {
+    const visibility = force ?? this._frustum.intesectsBox(node.bbox);
 
     if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
-
+      
       if (node.leaves) {
         if (node.visibility === VisibilityState.out) {
-          this._show.push(...node.leaves); // capire performance
+          this._show.push(...node.leaves); // TODO use push for better performance?
         } else if (visibility === VisibilityState.out) {
-          this._hide.push(...node.leaves); // capire performance
+          this._hide.push(...node.leaves); // TODO use push for better performance?
         }
       } else {
-        this._checkBox(node.left);
-        this._checkBox(node.right);
+        const force = visibility === VisibilityState.intersect ? undefined : visibility;
+        this.checkBoxVisibility(node.left, force);
+        this.checkBoxVisibility(node.right, force);
       }
 
       node.visibility = visibility;
@@ -151,35 +152,16 @@ export class InstancedMeshBVH {
   }
 }
 
-// experiment
+Vector3.prototype.min = function (v) {
+  if (this.x > v.x) this.x = v.x;
+  if (this.y > v.y) this.y = v.y;
+  if (this.z > v.z) this.z = v.z;
+  return this;
+};
 
-// Box3.prototype.union = function (box) {
-//   newMin(this.min, box.min);
-//   newMax(this.max, box.max);
-//   return this;
-// };
-
-// function newMin(v1: Vector3, v2: Vector3): Vector3 {
-//   if (v1.x > v2.x) v1.x = v2.x;
-//   if (v1.y > v2.y) v1.y = v2.y;
-//   if (v1.z > v2.z) v1.z = v2.z;
-//   return v1;
-// }
-
-// function newMax(v1: Vector3, v2: Vector3): Vector3 {
-//   if (v1.x < v2.x) v1.x = v2.x;
-//   if (v1.y < v2.y) v1.y = v2.y;
-//   if (v1.z < v2.z) v1.z = v2.z;
-//   return v1;
-// }
-
-// function traverse(node: Node): void {
-//   if (!node) return;
-//   if (node.leaves) {
-//     instancedMesh.add(new Box3Helper(node.bbox, 0xffff00));
-//   }
-//   traverse(node.left);
-//   traverse(node.right);
-// }
-
-// traverse(bvh.root);
+Vector3.prototype.max = function (v) {
+  if (this.x < v.x) this.x = v.x;
+  if (this.y < v.y) this.y = v.y;
+  if (this.z < v.z) this.z = v.z;
+  return this;
+};

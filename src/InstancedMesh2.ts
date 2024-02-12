@@ -2,6 +2,22 @@ import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedB
 import { InstancedEntity, SharedData } from './InstancedEntity';
 import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
 
+export enum InstanceMesh2Behaviour {
+  static,
+  dynamic
+}
+
+export interface InstancedMesh2Params<G, M, T> {
+  geometry: G;
+  material: M;
+  count: number;
+  onCreateEntity?: EntityCallback<T>;
+  color?: ColorRepresentation;
+  behaviour?: InstanceMesh2Behaviour;
+  /** @internal **/ shared?: SharedData[];
+  /** @internal **/ visible?: boolean;
+}
+
 type EntityCallback<T> = (obj: T, index: number) => void;
 
 const _color = new Color();
@@ -18,41 +34,61 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
-  private _bvh = new InstancedMeshBVH(this);
+  private _bvh: InstancedMeshBVH;
+  private _behaviour: InstanceMesh2Behaviour;
 
-  public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
-  public set perObjectFrustumCulled(value: boolean) {
-    if (this._perObjectFrustumCulled === value) return;
-    if (value) {
-      this.enablePerObjectFrustumCulled();
-    } else {
-      this.disablePerObjectFrustumCulled();
-    }
-    this.frustumCulled = !value;
-    this._perObjectFrustumCulled = value;
-  }
+  // public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
+  // public set perObjectFrustumCulled(value: boolean) {
+  //   if (this._perObjectFrustumCulled === value) return;
+  //   if (value) {
+  //     this.enablePerObjectFrustumCulled();
+  //   } else {
+  //     this.disablePerObjectFrustumCulled();
+  //   }
+  //   this.frustumCulled = !value;
+  //   this._perObjectFrustumCulled = value;
+  // }
 
-  constructor(geometry: G, material: M, count: number, onCreateEntity?: EntityCallback<T>, color?: ColorRepresentation, shared: SharedData[] = [], visible = true) {
-    super(geometry, material, count);
+  constructor(params: InstancedMesh2Params<G, M, T>) {
+    if (params === undefined) throw (new Error("params is mandatory"));
+    if (params.geometry === undefined) throw (new Error("geometry is mandatory"));
+    if (params.material === undefined) throw (new Error("material is mandatory"));
+    if (params.count === undefined) throw (new Error("count is mandatory"));
+
+    super(params.geometry, params.material, params.count);
+
+    const count = params.count;
+    const onCreateEntity = params.onCreateEntity;
+    const color = params.color !== undefined ? _color.set(params.color) : undefined;
+    const visible = params.visible ?? true;
+    const shared = params.shared ?? [];
+    this._behaviour = params.behaviour ?? InstanceMesh2Behaviour.static;
+
     this.internalCount = count;
-    if (color !== undefined) color = _color.set(color);
     if (visible === false) this.count = 0;
+
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
 
     for (let i = 0; i < count; i++) {
       const instance = new InstancedEntity(this, i, color, shared[i], visible) as T;
-      if (onCreateEntity) onCreateEntity(instance, i);
-      //handle visible in onCreateEntity.. fix
+      if (onCreateEntity) {
+        onCreateEntity(instance, i);
+        instance.forceUpdateMatrix();
+      }
       this._internalInstances[i] = instance;
       this.instances[i] = instance;
     }
 
+    // fare update in base alle visibilità se onCreateEntity
     this.updateInstancedAttributes();
-    if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere();
-    this.frustumCulled = false;
 
-    this._bvh.build();
+    if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere(); // capire
+    this.frustumCulled = false;  // capire
+
+    if (this._behaviour === InstanceMesh2Behaviour.static) {
+      this._bvh = new InstancedMeshBVH(this).build(visible);
+    }
   }
 
   private updateInstancedAttributes(): void {
@@ -187,42 +223,38 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     // console.time("culling");
 
-    this._bvh.updateCulling(camera, show, hide);
+    if (this._behaviour === InstanceMesh2Behaviour.static) {
+      this._bvh.updateCulling(camera, show, hide);
+    } else {
 
-    // console.timeEnd("culling");
+      _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+      _frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-    // console.log(show);
-    // console.log(hide);
+      const instances = this.instances;
+      const bSphere = this.geometry.boundingSphere;
+      const radius = bSphere.radius;
+      const center = bSphere.center;
 
-    // return;
+      for (let i = 0, l = this.internalCount; i < l; i++) {
+        const instance = instances[i];
+        if (instance._visible === false) continue;
 
-    // _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-    // _frustum.setFromProjectionMatrix(_projScreenMatrix);
+        // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
 
-    // const instances = this.instances;
-    // const bSphere = this.geometry.boundingSphere;
-    // const radius = bSphere.radius;
-    // const center = bSphere.center;
+        _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
+        _sphere.radius = radius * this.getMax(instance.scale);
 
-    // for (let i = 0, l = this.internalCount; i < l; i++) {
-    //   const instance = instances[i];
-    //   if (instance._visible === false) continue;
+        if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
+          if (instance._inFrustum === true) show.push(instance);
+          else hide.push(instance);
+        }
 
-    //   // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
-
-    //   _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
-    //   _sphere.radius = radius * this.getMax(instance.scale);
-
-    //   if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-    //     if (instance._inFrustum === true) show.push(instance);
-    //     else hide.push(instance);
-    //   }
-
-    //   if (instance._inFrustum && instance._needsUpdate) {
-    //     this.composeToArray(instance);
-    //     instance._needsUpdate = false;
-    //   }
-    // }
+        if (instance._inFrustum && instance._needsUpdate) {
+          this.composeToArray(instance);
+          instance._needsUpdate = false;
+        }
+      }
+    }
 
     // console.timeEnd("culling");
 
@@ -321,20 +353,20 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.needsUpdate();
   }
 
-  public enablePerObjectFrustumCulled(): void {
-    for (let i = 0, l = this.instances.length; i < l; i++) {
-      this.instances[i]._inFrustum = true;
-    }
-  }
+  // public enablePerObjectFrustumCulled(): void {
+  //   for (let i = 0, l = this.instances.length; i < l; i++) {
+  //     this.instances[i]._inFrustum = true;
+  //   }
+  // }
 
-  public disablePerObjectFrustumCulled(): void {
-    const show: T[] = [];
-    for (let i = 0, l = this.instances.length; i < l; i++) {
-      const instance = this.instances[i];
-      if (!instance._inFrustum && instance.visible) show.push(instance);
-    }
-    this.setInstancesVisibility(show, []);
-  }
+  // public disablePerObjectFrustumCulled(): void {
+  //   const show: T[] = [];
+  //   for (let i = 0, l = this.instances.length; i < l; i++) {
+  //     const instance = this.instances[i];
+  //     if (!instance._inFrustum && instance.visible) show.push(instance);
+  //   }
+  //   this.setInstancesVisibility(show, []);
+  // }
 }
 
 InstancedMesh2.prototype.isInstancedMesh2 = true;
