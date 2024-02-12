@@ -32,6 +32,9 @@ export class InstancedEntity extends EventDispatcher {
     this._visible = value;
   }
 
+  //TODO si può migliorare vedendo il flag need update
+  public get matrix(): Matrix4 { return _m.compose(this.position, this.quaternion, this.scale) }
+
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible = true) {
     super();
     this.id = index;

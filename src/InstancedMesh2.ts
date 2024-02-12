@@ -185,14 +185,14 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     const show: T[] = []; // opt memory allocation
     const hide: T[] = [];
 
-    console.time("culling");
+    // console.time("culling");
 
     this._bvh.updateCulling(camera, show, hide);
 
-    console.timeEnd("culling");
+    // console.timeEnd("culling");
 
-    console.log(show);
-    console.log(hide);
+    // console.log(show);
+    // console.log(hide);
 
     // return;
 

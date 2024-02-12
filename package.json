@@ -6,11 +6,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@three.ez/main": "^0.4.0",
-    "three": "^0.159.0"
+    "@three.ez/main": "^0.4.12",
+    "three": "^0.161.0"
   },
   "devDependencies": {
-    "@types/three": "^0.159.0",
+    "@types/three": "^0.161.0",
     "typescript": "^5.2.2",
     "vite": "^4.4.9"
   }

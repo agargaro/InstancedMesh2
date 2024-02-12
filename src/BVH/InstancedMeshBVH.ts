@@ -28,8 +28,8 @@ const _projScreenMatrix = new Matrix4();
 
 // renderlo compatibile con un array di target
 export class InstancedMeshBVH {
-  public target: InstancedMesh2;
   public root: Node;
+  private _target: InstancedMesh2;
   private _maxLeaves: number;
   private _maxDepth: number;
   private _bboxCache: Box3[];
@@ -38,60 +38,25 @@ export class InstancedMeshBVH {
   private _hide: InstancedEntity[];
 
   constructor(instancedMesh: InstancedMesh2) {
-    this.target = instancedMesh;
-  }
-
-  public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
-    this._show = show;
-    this._hide = hide;
-
-    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-    this._frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-    this.test(this.root);
-
-    this._show = undefined;
-    this._hide = undefined;
-  }
-
-  private test(node: Node): void {
-    //aggiungere ottimizzazione per evitare di rifare intersectBox
-    const visibility = this._frustum.intesectsBox(node.bbox);
-
-    if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
-
-      if (node.leaves) {
-        if (node.visibility === VisibilityState.out) {
-          this._show.push(...node.leaves); // capire performance
-        } else if (visibility === VisibilityState.out) {
-          this._hide.push(...node.leaves); // capire performance
-        }
-
-      } else {
-        this.test(node.left);
-        this.test(node.right);
-      }
-
-      node.visibility = visibility;
-    }
+    this._target = instancedMesh;
   }
 
   public build(strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
     this._maxLeaves = maxLeaves;
     this._maxDepth = maxDepth;
 
-    if (!this.target.boundingBox) this.target.computeBoundingBox();
-    if (!this.target.geometry.boundingBox) this.target.geometry.computeBoundingBox();
+    if (!this._target.boundingBox) this._target.computeBoundingBox();
+    if (!this._target.geometry.boundingBox) this._target.geometry.computeBoundingBox();
 
     this.updateBoundingBoxCache();
-    this.root = { leaves: this.target.instances, bbox: this.target.boundingBox, visibility: VisibilityState.in };
+    this.root = { leaves: this._target.instances, bbox: this._target.boundingBox, visibility: VisibilityState.in };
 
     switch (strategy) {
       case BVHStrategy.center:
         this.buildCenter(this.root, 0);
         break;
-      case BVHStrategy.average:
-        //   this.buildAverage(this.root, 0);
+      default:
+        console.error("Not implemented yet.");
         break;
     }
 
@@ -101,13 +66,13 @@ export class InstancedMeshBVH {
   }
 
   private updateBoundingBoxCache(): void {
-    const instances = this.target.instances;
+    const instances = this._target.instances;
     const count = instances.length;
     const bboxCache = new Array(count);
-    const bboxGeometry = this.target.geometry.boundingBox;
+    const bboxGeometry = this._target.geometry.boundingBox;
 
     for (let i = 0; i < count; i++) {
-      bboxCache[i] = bboxGeometry.clone().translate(instances[i].position); // TODO è incompleto
+      bboxCache[i] = bboxGeometry.clone().applyMatrix4(instances[i].matrix);
     }
 
     this._bboxCache = bboxCache;
@@ -149,6 +114,40 @@ export class InstancedMeshBVH {
     if (++depth >= this._maxDepth) return;
     if (leavesLeft.length > this._maxLeaves) this.buildCenter(node.left, depth);
     if (leavesRight.length > this._maxLeaves) this.buildCenter(node.right, depth);
+  }
+
+  public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
+    this._show = show;
+    this._hide = hide;
+
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    this._frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    this._checkBox(this.root);
+
+    this._show = undefined;
+    this._hide = undefined;
+  }
+
+  private _checkBox(node: Node): void {
+    //aggiungere ottimizzazione per evitare di rifare intersectBox
+    const visibility = this._frustum.intesectsBox(node.bbox);
+
+    if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
+
+      if (node.leaves) {
+        if (node.visibility === VisibilityState.out) {
+          this._show.push(...node.leaves); // capire performance
+        } else if (visibility === VisibilityState.out) {
+          this._hide.push(...node.leaves); // capire performance
+        }
+      } else {
+        this._checkBox(node.left);
+        this._checkBox(node.right);
+      }
+
+      node.visibility = visibility;
+    }
   }
 }
 
