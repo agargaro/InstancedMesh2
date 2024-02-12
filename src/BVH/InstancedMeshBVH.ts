@@ -1,0 +1,186 @@
+import { Box3, Camera, Matrix4, Vector3 } from 'three';
+import { InstancedEntity } from '../InstancedEntity';
+import { InstancedMesh2 } from '../InstancedMesh2';
+import { Frustum, VisibilityState } from './Frustum';
+
+// NON CREARE NODI VUOTI?
+// USARE ARRAY CON DIMENSIONI FISSE?
+
+export interface Node {
+  left?: Node;
+  right?: Node;
+  leaves: InstancedEntity[];
+  bbox: Box3;
+  visibility: VisibilityState;
+}
+
+export enum BVHStrategy {
+  center,
+  average,
+  SAH,
+}
+
+type Axis = 'x' | 'y' | 'z';
+
+const _size = new Vector3();
+const _center = new Vector3();
+const _projScreenMatrix = new Matrix4();
+
+// renderlo compatibile con un array di target
+export class InstancedMeshBVH {
+  public target: InstancedMesh2;
+  public root: Node;
+  private _maxLeaves: number;
+  private _maxDepth: number;
+  private _bboxCache: Box3[];
+  private _frustum = new Frustum();
+  private _show: InstancedEntity[];
+  private _hide: InstancedEntity[];
+
+  constructor(instancedMesh: InstancedMesh2) {
+    this.target = instancedMesh;
+  }
+
+  public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
+    this._show = show;
+    this._hide = hide;
+
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    this._frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    this.test(this.root);
+
+    this._show = undefined;
+    this._hide = undefined;
+  }
+
+  private test(node: Node): void {
+    //aggiungere ottimizzazione per evitare di rifare intersectBox
+    const visibility = this._frustum.intesectsBox(node.bbox);
+
+    if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
+
+      if (node.leaves) {
+        if (node.visibility === VisibilityState.out) {
+          this._show.push(...node.leaves); // capire performance
+        } else if (visibility === VisibilityState.out) {
+          this._hide.push(...node.leaves); // capire performance
+        }
+
+      } else {
+        this.test(node.left);
+        this.test(node.right);
+      }
+
+      node.visibility = visibility;
+    }
+  }
+
+  public build(strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
+    this._maxLeaves = maxLeaves;
+    this._maxDepth = maxDepth;
+
+    if (!this.target.boundingBox) this.target.computeBoundingBox();
+    if (!this.target.geometry.boundingBox) this.target.geometry.computeBoundingBox();
+
+    this.updateBoundingBoxCache();
+    this.root = { leaves: this.target.instances, bbox: this.target.boundingBox, visibility: VisibilityState.in };
+
+    switch (strategy) {
+      case BVHStrategy.center:
+        this.buildCenter(this.root, 0);
+        break;
+      case BVHStrategy.average:
+        //   this.buildAverage(this.root, 0);
+        break;
+    }
+
+    this._bboxCache = undefined;
+
+    return this;
+  }
+
+  private updateBoundingBoxCache(): void {
+    const instances = this.target.instances;
+    const count = instances.length;
+    const bboxCache = new Array(count);
+    const bboxGeometry = this.target.geometry.boundingBox;
+
+    for (let i = 0; i < count; i++) {
+      bboxCache[i] = bboxGeometry.clone().translate(instances[i].position); // TODO è incompleto
+    }
+
+    this._bboxCache = bboxCache;
+  }
+
+  private getLongestAxis(node: Node): Axis {
+    node.bbox.getSize(_size);
+    if (_size.x > _size.y) return _size.x > _size.z ? 'x' : 'z';
+    return _size.y > _size.z ? 'y' : 'z';
+  }
+
+  private buildCenter(node: Node, depth: number): void {
+    const axis = this.getLongestAxis(node);
+    const leaves = node.leaves;
+    const center = node.bbox.getCenter(_center)[axis];
+
+    const leavesLeft: InstancedEntity[] = [];
+    const leavesRight: InstancedEntity[] = [];
+    const bboxLeft = new Box3();
+    const bboxRight = new Box3();
+
+    node.left = { leaves: leavesLeft, bbox: bboxLeft, visibility: VisibilityState.in };
+    node.right = { leaves: leavesRight, bbox: bboxRight, visibility: VisibilityState.in };
+
+    for (let i = 0, c = leaves.length; i < c; i++) {
+      const obj = leaves[i];
+
+      if (obj.position[axis] <= center) {
+        leavesLeft.push(obj);
+        bboxLeft.union(this._bboxCache[obj.id]);
+      } else {
+        leavesRight.push(obj);
+        bboxRight.union(this._bboxCache[obj.id]);
+      }
+    }
+
+    node.leaves = undefined;
+
+    if (++depth >= this._maxDepth) return;
+    if (leavesLeft.length > this._maxLeaves) this.buildCenter(node.left, depth);
+    if (leavesRight.length > this._maxLeaves) this.buildCenter(node.right, depth);
+  }
+}
+
+// experiment
+
+// Box3.prototype.union = function (box) {
+//   newMin(this.min, box.min);
+//   newMax(this.max, box.max);
+//   return this;
+// };
+
+// function newMin(v1: Vector3, v2: Vector3): Vector3 {
+//   if (v1.x > v2.x) v1.x = v2.x;
+//   if (v1.y > v2.y) v1.y = v2.y;
+//   if (v1.z > v2.z) v1.z = v2.z;
+//   return v1;
+// }
+
+// function newMax(v1: Vector3, v2: Vector3): Vector3 {
+//   if (v1.x < v2.x) v1.x = v2.x;
+//   if (v1.y < v2.y) v1.y = v2.y;
+//   if (v1.z < v2.z) v1.z = v2.z;
+//   return v1;
+// }
+
+// function traverse(node: Node): void {
+//   if (!node) return;
+//   if (node.leaves) {
+//     instancedMesh.add(new Box3Helper(node.bbox, 0xffff00));
+//   }
+//   traverse(node.left);
+//   traverse(node.right);
+// }
+
+// traverse(bvh.root);

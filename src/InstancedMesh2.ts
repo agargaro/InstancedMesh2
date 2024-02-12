@@ -1,5 +1,6 @@
 import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
+import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
 
 type EntityCallback<T> = (obj: T, index: number) => void;
 
@@ -17,6 +18,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
+  private _bvh = new InstancedMeshBVH(this);
 
   public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
   public set perObjectFrustumCulled(value: boolean) {
@@ -49,6 +51,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.updateInstancedAttributes();
     if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere();
     this.frustumCulled = false;
+
+    this._bvh.build();
   }
 
   private updateInstancedAttributes(): void {
@@ -175,47 +179,59 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   public updateCulling(camera: Camera): void {
     //put it on beforeRenderer
+
     if (this._perObjectFrustumCulled === false) return;
-
-    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-    _frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-    const instances = this.instances;
-    const bSphere = this.geometry.boundingSphere;
-    const radius = bSphere.radius;
-    const center = bSphere.center;
 
     const show: T[] = []; // opt memory allocation
     const hide: T[] = [];
 
-    for (let i = 0, l = this.internalCount; i < l; i++) {
-      const instance = instances[i];
-      if (instance._visible === false) continue;
+    console.time("culling");
 
-      // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
+    this._bvh.updateCulling(camera, show, hide);
 
-      _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
-      _sphere.radius = radius * this.getMax(instance.scale);
+    console.timeEnd("culling");
 
-      if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-        if (instance._inFrustum === true) show[show.length] = instance;
-        else hide[hide.length] = instance;
-      }
+    console.log(show);
+    console.log(hide);
 
-      if (instance._inFrustum && instance._needsUpdate) {
-        this.composeToArray(instance);
-        instance._needsUpdate = false;
-      }
-    }
+    // return;
+
+    // _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    // _frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    // const instances = this.instances;
+    // const bSphere = this.geometry.boundingSphere;
+    // const radius = bSphere.radius;
+    // const center = bSphere.center;
+
+    // for (let i = 0, l = this.internalCount; i < l; i++) {
+    //   const instance = instances[i];
+    //   if (instance._visible === false) continue;
+
+    //   // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
+
+    //   _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
+    //   _sphere.radius = radius * this.getMax(instance.scale);
+
+    //   if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
+    //     if (instance._inFrustum === true) show.push(instance);
+    //     else hide.push(instance);
+    //   }
+
+    //   if (instance._inFrustum && instance._needsUpdate) {
+    //     this.composeToArray(instance);
+    //     instance._needsUpdate = false;
+    //   }
+    // }
+
+    // console.timeEnd("culling");
 
     if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
   }
 
   // this is faster than Math.max(scale.x, scale.y, scale.z)
   private getMax(scale: Vector3): number {
-    if (scale.x > scale.y) {
-      return scale.x > scale.z ? scale.x : scale.z;
-    }
+    if (scale.x > scale.y) return scale.x > scale.z ? scale.x : scale.z;
     return scale.y > scale.z ? scale.y : scale.z;
   }
 
