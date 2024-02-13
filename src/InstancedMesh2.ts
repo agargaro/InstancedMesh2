@@ -11,14 +11,14 @@ export interface InstancedMesh2Params<G, M, T> {
   geometry: G;
   material: M;
   count: number;
-  onCreateEntity?: EntityCallback<T>;
+  onCreateEntity?: CreateEntityCallback<T>;
   color?: ColorRepresentation;
   behaviour?: InstanceMesh2Behaviour;
   /** @internal **/ shared?: SharedData[];
   /** @internal **/ visible?: boolean;
 }
 
-type EntityCallback<T> = (obj: T, index: number) => void;
+export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
 const _color = new Color();
 const _frustum = new Frustum();
@@ -134,7 +134,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (show.length > hide.length) this.showInstances(show, length);
     else this.hideInstances(hide, hide.length - length);
-
+    
   }
 
   private showInstances(entities: T[], count: number): void {
@@ -270,6 +270,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   private needsUpdate(): void {
     for (const attr of this.instancedAttributes) {
       attr.needsUpdate = true;
+      attr.addUpdateRange(0, this.count * attr.itemSize);
     }
   }
 
