@@ -1,5 +1,4 @@
-import { BufferGeometry, Camera, Object3D, Material } from 'three';
-import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
+import { BufferGeometry, Camera, Material, Object3D } from 'three';
 import { InstancedEntity, SharedData } from './InstancedEntity';
 import { CreateEntityCallback, InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
 
@@ -46,19 +45,17 @@ export class InstancedLOD<G extends BufferGeometry = BufferGeometry, M extends M
     // this.instances = new Array(count);
 
     //ottimizzare condividendo entities
-    for (let i = 0; i < levels.length; i++) {
-      const level = levels[i];
-
-      this.instancedMesh[i] = new InstancedMesh2({
+    for (const level of levels) {
+      this.instancedMesh.push(new InstancedMesh2({
         geometry: level.geometry,
         material: level.material,
         count,
         behaviour,
         shared,
-        visible: false, // TODO true oslo il primo
+        visible: false,
         // color: 
         // onCreateEntity: 
-      });
+      }));
     }
 
     this.frustumCulled = false;  // capire

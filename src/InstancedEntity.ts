@@ -1,14 +1,6 @@
 import { Color, ColorRepresentation, EventDispatcher, Matrix4, Quaternion, Vector3 } from 'three';
 import { InstancedMesh2 } from './InstancedMesh2';
 
-// Used by InstancedLOD
-export interface SharedData {
-  position: Vector3;
-  scale: Vector3;
-  quaternion: Quaternion;
-  index: number;
-}
-
 const _q = new Quaternion();
 const _m = new Matrix4();
 const _c = new Color();
@@ -32,27 +24,20 @@ export class InstancedEntity extends EventDispatcher {
     this._visible = value;
   }
 
-  //TODO si può migliorare vedendo il flag need update
+  // si può migliorare vedendo il flag need update
   public get matrix(): Matrix4 { return _m.compose(this.position, this.quaternion, this.scale) }
 
-  constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation, sharedData?: SharedData, visible = true) {
+  constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation) {
     super();
     this.id = index;
     this.parent = parent;
     this._internalId = index;
-    this._visible = visible;
+
     if (color !== undefined) this.setColor(color);
 
-    if (sharedData) {
-      // used by InstancedLOD
-      this.position = sharedData.position;
-      this.scale = sharedData.scale;
-      this.quaternion = sharedData.quaternion;
-    } else {
-      this.position = new Vector3();
-      this.scale = new Vector3(1, 1, 1);
-      this.quaternion = new Quaternion();
-    }
+    this.position = new Vector3();
+    this.scale = new Vector3(1, 1, 1);
+    this.quaternion = new Quaternion();
   }
 
   public updateMatrix(): void {
@@ -73,10 +58,7 @@ export class InstancedEntity extends EventDispatcher {
   }
 
   public applyMatrix4(m: Matrix4): this {
-    _m.compose(this.position, this.quaternion, this.scale); // or get it from array but is not updated
-    _m.premultiply(m);
-    _m.decompose(this.position, this.quaternion, this.scale);
-    this.parent.setMatrixAt(this._internalId, _m);
+    this.matrix.premultiply(m).decompose(this.position, this.quaternion, this.scale);
     return this;
   }
 
