@@ -23,7 +23,6 @@ const monkeys = new InstancedMesh2({
   onCreateEntity: (obj, index) => {
     obj.position.random().multiplyScalar(500).subScalar(250);
     obj.quaternion.random();
-    obj.forceUpdateMatrix();
   }
 });
 
