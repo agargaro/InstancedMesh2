@@ -1,3 +1,4 @@
 # InstancedMesh2
 
-[Edit in Codeflow ⚡️](https://stackblitz.com/~/github.com/agargaro/InstancedMesh2)
+Work in progress...
+This work when finished will be moved to the three.ez repo.
