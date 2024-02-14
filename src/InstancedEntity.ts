@@ -14,9 +14,9 @@ export class InstancedEntity extends EventDispatcher {
   public readonly scale: Vector3;
   public readonly quaternion: Quaternion;
   /** @internal */ public _internalId: number;
-  /** @internal */ public _visible: boolean;
+  /** @internal */ public _visible = true;
   /** @internal */ public _inFrustum = true;
-  /** @internal */ public _needsUpdate = false;
+  /** @internal */ public _matrixNeedsUpdate = false;
 
   public get visible(): boolean { return this._visible }
   public set visible(value: boolean) {

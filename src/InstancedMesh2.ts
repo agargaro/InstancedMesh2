@@ -1,6 +1,8 @@
 import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
-import { InstancedEntity, SharedData } from './InstancedEntity';
+import { InstancedEntity } from './InstancedEntity';
 import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
+
+export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
 export enum InstanceMesh2Behaviour {
   static,
@@ -14,11 +16,8 @@ export interface InstancedMesh2Params<G, M, T> {
   onCreateEntity?: CreateEntityCallback<T>;
   color?: ColorRepresentation;
   behaviour?: InstanceMesh2Behaviour;
-  /** @internal **/ shared?: SharedData[];
-  /** @internal **/ visible?: boolean;
+  // TODO perObjectFrustumCulled?: boolean;
 }
-
-export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
 const _color = new Color();
 const _frustum = new Frustum();
@@ -28,14 +27,13 @@ const _sphere = new Sphere();
 export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
   public declare isInstancedMesh2: true;
-  public internalCount: number;
   public instances: T[];
-  public instancedAttributes: InstancedBufferAttribute[];
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
-  private _bvh: InstancedMeshBVH;
   private _behaviour: InstanceMesh2Behaviour;
+  private _bvh: InstancedMeshBVH;
+  private _instancedAttributes: InstancedBufferAttribute[];
 
   // public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
   // public set perObjectFrustumCulled(value: boolean) {
@@ -58,51 +56,47 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     super(params.geometry, params.material, params.count);
 
     const count = params.count;
-    const onCreateEntity = params.onCreateEntity;
     const color = params.color !== undefined ? _color.set(params.color) : undefined;
-    const visible = params.visible ?? true;
-    const shared = params.shared ?? [];
+    const onCreateEntity = params.onCreateEntity;
     this._behaviour = params.behaviour ?? InstanceMesh2Behaviour.static;
-
-    this.internalCount = count;
-    if (visible === false) this.count = 0;
 
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
 
     for (let i = 0; i < count; i++) {
-      const instance = new InstancedEntity(this, i, color, shared[i], visible) as T;
+      const instance = new InstancedEntity(this, i, color) as T;
+
       if (onCreateEntity) {
         onCreateEntity(instance, i);
         instance.forceUpdateMatrix();
       }
+
       this._internalInstances[i] = instance;
       this.instances[i] = instance;
     }
 
-    // fare update in base alle visibilità se onCreateEntity
+    // TODO fare update in base alle visibilità se onCreateEntity
     this.updateInstancedAttributes();
 
-    if (!this.geometry.boundingSphere) this.geometry.computeBoundingSphere(); // capire
-    this.frustumCulled = false;  // capire
+    this.frustumCulled = false;  // TODO capire
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
-      this._bvh = new InstancedMeshBVH(this).build(visible);
+      this._bvh = new InstancedMeshBVH(this).build();
     }
   }
 
   private updateInstancedAttributes(): void {
-    const array = [this.instanceMatrix];
-    if (this.instanceColor) array.push(this.instanceColor);
+    const instancedAttributes = [this.instanceMatrix];
+    if (this.instanceColor) instancedAttributes.push(this.instanceColor);
 
     const attributes = this.geometry.attributes;
     for (const key in attributes) {
-      if ((attributes[key] as InstancedBufferAttribute as any).isInstancedBufferAttribute === true)
-        // FIX d.ts and remove any
-        array.push(attributes[key] as InstancedBufferAttribute);
+      if ((attributes[key] as InstancedBufferAttribute as any).isInstancedBufferAttribute) {
+        instancedAttributes.push(attributes[key] as InstancedBufferAttribute);  // TODO FIX d.ts and remove any
+      }
     }
 
-    this.instancedAttributes = array;
+    this._instancedAttributes = instancedAttributes;
   }
 
   /** @internal */
@@ -134,7 +128,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (show.length > hide.length) this.showInstances(show, length);
     else this.hideInstances(hide, hide.length - length);
-    
+
   }
 
   private showInstances(entities: T[], count: number): void {
@@ -192,7 +186,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   }
 
   private swapAttributes(idFrom: number, idTo: number): void {
-    for (const attr of this.instancedAttributes) {
+    for (const attr of this._instancedAttributes) {
       this.swapAttribute(attr, idTo, idFrom);
     }
   }
@@ -249,9 +243,9 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
           else hide.push(instance);
         }
 
-        if (instance._inFrustum && instance._needsUpdate) {
+        if (instance._inFrustum && instance._matrixNeedsUpdate) {
           this.composeToArray(instance);
-          instance._needsUpdate = false;
+          instance._matrixNeedsUpdate = false;
         }
       }
     }
@@ -268,7 +262,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   }
 
   private needsUpdate(): void {
-    for (const attr of this.instancedAttributes) {
+    for (const attr of this._instancedAttributes) {
       attr.needsUpdate = true;
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
@@ -276,7 +270,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   public updateInstanceMatrix(instance: InstancedEntity): void {
     if (this._perObjectFrustumCulled === true || instance._visible === false) {
-      instance._needsUpdate = true;
+      instance._matrixNeedsUpdate = true;
     } else {
       this.composeToArray(instance);
     }
@@ -284,7 +278,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   public forceUpdateInstanceMatrix(instance: InstancedEntity): void {
     this.composeToArray(instance);
-    instance._needsUpdate = false;
+    instance._matrixNeedsUpdate = false;
   }
 
   /** @internal updated to r159 Matrix4.ts */

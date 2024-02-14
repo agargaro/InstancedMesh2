@@ -1,7 +1,7 @@
 import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
 import { BoxGeometry, BufferGeometry, BufferGeometryLoader, MeshNormalMaterial, Scene } from 'three';
 import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
-import { InstancedMesh2 } from './InstancedMesh2';
+import { InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 const scene = new Scene();
@@ -19,7 +19,8 @@ monkeyGeometry.computeVertexNormals();
 const monkeys = new InstancedMesh2({
   geometry: new BoxGeometry(),
   material: new MeshNormalMaterial(),
-  count: 1000000,
+  count: 10000,
+  behaviour: InstanceMesh2Behaviour.static,
   onCreateEntity: (obj, index) => {
     obj.position.random().multiplyScalar(500).subScalar(250);
     obj.quaternion.random();

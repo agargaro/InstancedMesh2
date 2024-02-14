@@ -41,8 +41,7 @@ export class InstancedMeshBVH {
     this._target = instancedMesh;
   }
 
-  //TODO gesteire default
-  public build(visible: boolean, strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
+  public build(strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
     this._maxLeaves = maxLeaves;
     this._maxDepth = maxDepth;
 
@@ -134,7 +133,7 @@ export class InstancedMeshBVH {
     const visibility = force ?? this._frustum.intesectsBox(node.bbox);
 
     if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
-      
+
       if (node.leaves) {
         if (node.visibility === VisibilityState.out) {
           this._show.push(...node.leaves); // TODO use push for better performance?
