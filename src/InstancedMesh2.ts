@@ -13,7 +13,7 @@ export interface InstancedMesh2Params<G, M, T> {
   geometry: G;
   material: M;
   count: number;
-  onCreateEntity?: CreateEntityCallback<T>;
+  onCreateEntity: CreateEntityCallback<T>;
   color?: ColorRepresentation;
   behaviour?: InstanceMesh2Behaviour;
   // TODO perObjectFrustumCulled?: boolean;
@@ -52,6 +52,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     if (params.geometry === undefined) throw (new Error("geometry is mandatory"));
     if (params.material === undefined) throw (new Error("material is mandatory"));
     if (params.count === undefined) throw (new Error("count is mandatory"));
+    if (params.onCreateEntity === undefined) throw (new Error("onCreateEntity is mandatory"));
 
     super(params.geometry, params.material, params.count);
 
@@ -66,10 +67,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     for (let i = 0; i < count; i++) {
       const instance = new InstancedEntity(this, i, color) as T;
 
-      if (onCreateEntity) {
-        onCreateEntity(instance, i);
-        instance.forceUpdateMatrix();
-      }
+      onCreateEntity(instance, i);
+      instance.forceUpdateMatrix();
 
       this._internalInstances[i] = instance;
       this.instances[i] = instance;
@@ -109,6 +108,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
       this.swapInstance(instance, this.count - 1);
       this.count--;
     }
+    this.needsUpdate(); // serve?
   }
 
   private setInstancesVisibility(show: T[], hide: T[]): void {
@@ -347,7 +347,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.internalCount = value;
     this.needsUpdate();
   }
-
+  
   // public enablePerObjectFrustumCulled(): void {
   //   for (let i = 0, l = this.instances.length; i < l; i++) {
   //     this.instances[i]._inFrustum = true;
