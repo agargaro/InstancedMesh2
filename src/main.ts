@@ -8,8 +8,8 @@ const scene = new Scene();
 const camera = new PerspectiveCameraAuto(70);
 
 const controls = new FlyControls(camera, main.renderer.domElement);
-controls.rollSpeed = Math.PI / 10;
-controls.movementSpeed = 10;
+controls.rollSpeed = Math.PI / 4;
+controls.movementSpeed = 50;
 scene.on('animate', (e) => controls.update(e.delta));
 
 const monkeyPath = 'https://threejs.org/examples/models/json/suzanne_buffergeometry.json';
@@ -19,10 +19,10 @@ monkeyGeometry.computeVertexNormals();
 const monkeys = new InstancedMesh2({
   geometry: new BoxGeometry(),
   material: new MeshNormalMaterial(),
-  count: 10000,
+  count: 90000,
   behaviour: InstanceMesh2Behaviour.static,
   onCreateEntity: (obj, index) => {
-    obj.position.random().multiplyScalar(500).subScalar(250);
+    obj.position.randomDirection().multiplyScalar(Math.random() * 5000 + 100);
     obj.quaternion.random();
   }
 });

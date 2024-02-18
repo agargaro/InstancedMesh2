@@ -1,11 +1,11 @@
-import { Color, ColorRepresentation, EventDispatcher, Matrix4, Quaternion, Vector3 } from 'three';
+import { Color, ColorRepresentation, Matrix4, Quaternion, Vector3 } from 'three';
 import { InstancedMesh2 } from './InstancedMesh2';
 
 const _q = new Quaternion();
 const _m = new Matrix4();
 const _c = new Color();
 
-export class InstancedEntity extends EventDispatcher {
+export class InstancedEntity {
   public declare type: 'InstancedEntity';
   public declare isInstanceEntity: true;
   public parent: InstancedMesh2;
@@ -28,7 +28,6 @@ export class InstancedEntity extends EventDispatcher {
   public get matrix(): Matrix4 { return _m.compose(this.position, this.quaternion, this.scale) }
 
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation) {
-    super();
     this.id = index;
     this.parent = parent;
     this._internalId = index;

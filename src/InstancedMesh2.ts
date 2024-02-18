@@ -1,6 +1,6 @@
-import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
+import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, StreamDrawUsage, Vector3 } from 'three';
 import { InstancedEntity } from './InstancedEntity';
-import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
+import { InstancedMeshBVH_2 } from './BVH/InstancedMeshBVH_new';
 
 export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
@@ -32,7 +32,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
   private _behaviour: InstanceMesh2Behaviour;
-  private _bvh: InstancedMeshBVH;
+  private _bvh: InstancedMeshBVH_2;
   private _instancedAttributes: InstancedBufferAttribute[];
 
   // public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
@@ -75,12 +75,15 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
 
     // TODO fare update in base alle visibilità se onCreateEntity
-    this.updateInstancedAttributes();
 
-    this.frustumCulled = false;  // TODO capire
+    if (this._perObjectFrustumCulled) {
+      this.updateInstancedAttributes();
+      this.frustumCulled = false;  // TODO capire
+      // assegnare bbox calcolato?
+    }
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
-      this._bvh = new InstancedMeshBVH(this).build();
+      this._bvh = new InstancedMeshBVH_2(this).build();
     }
   }
 
@@ -90,8 +93,10 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     const attributes = this.geometry.attributes;
     for (const key in attributes) {
-      if ((attributes[key] as InstancedBufferAttribute as any).isInstancedBufferAttribute) {
-        instancedAttributes.push(attributes[key] as InstancedBufferAttribute);  // TODO FIX d.ts and remove any
+      const attr = attributes[key] as InstancedBufferAttribute;
+      if ((attr as any).isInstancedBufferAttribute) { // TODO FIX d.ts and remove any
+        attr.setUsage(StreamDrawUsage);
+        instancedAttributes.push(attr);
       }
     }
 
@@ -218,7 +223,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     // console.time("culling");
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
-      this._bvh.updateCulling(camera, show, hide);
+      // this._bvh.updateCulling(camera, show, hide);
     } else {
 
       _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
@@ -347,7 +352,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.internalCount = value;
     this.needsUpdate();
   }
-  
+
   // public enablePerObjectFrustumCulled(): void {
   //   for (let i = 0, l = this.instances.length; i < l; i++) {
   //     this.instances[i]._inFrustum = true;
