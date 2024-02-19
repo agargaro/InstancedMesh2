@@ -1,4 +1,4 @@
-import { Box3, Matrix4, Plane, Vector3, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
+import { Matrix4, Plane, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
 
 export enum VisibilityState {
   in,
@@ -39,7 +39,7 @@ export class Frustum {
     return this;
   }
 
-  public intesectsBox(box: Box3): VisibilityState {
+  public intesectsBox(box: Float32Array): VisibilityState {
     const planes = this.planes;
     let result = VisibilityState.in;
 
@@ -50,15 +50,15 @@ export class Frustum {
       const ny = plane.normal.y > 0 ? 1 : 0;
       const nz = plane.normal.z > 0 ? 1 : 0;
 
-      let dot = (plane.normal.x * this.minMax(box, nx).x) + (plane.normal.y * this.minMax(box, ny).y) + (plane.normal.z * this.minMax(box, nz).z);
+      let dot = (plane.normal.x * this.minMax(box, nx, 0)) + (plane.normal.y * this.minMax(box, ny, 1)) + (plane.normal.z * this.minMax(box, nz, 2));
 
       if (dot < -plane.constant) {
         return VisibilityState.out;
-      } 
+      }
 
       if (result === VisibilityState.intersect) continue;
 
-      dot = (plane.normal.x * this.minMax(box, 1 - nx).x) + (plane.normal.y * this.minMax(box, 1 - ny).y) + (plane.normal.z * this.minMax(box, 1 - nz).z);
+      dot = (plane.normal.x * this.minMax(box, 1 - nx, 0)) + (plane.normal.y * this.minMax(box, 1 - ny, 1)) + (plane.normal.z * this.minMax(box, 1 - nz, 2));
 
       if (dot <= -plane.constant)
         result = VisibilityState.intersect;
@@ -67,7 +67,7 @@ export class Frustum {
     return result;
   }
 
-  private minMax(box: Box3, index: number): Vector3 {
-    return index === 0 ? box.min : box.max;
+  private minMax(box: Float32Array, index: number, axis: number): number {
+    return index === 0 ? box[axis] : box[axis + 3];
   }
 }

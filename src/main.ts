@@ -5,7 +5,7 @@ import { InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 const scene = new Scene();
-const camera = new PerspectiveCameraAuto(70);
+const camera = new PerspectiveCameraAuto(70, 0.1, 1000);
 
 const controls = new FlyControls(camera, main.renderer.domElement);
 controls.rollSpeed = Math.PI / 4;
@@ -16,13 +16,15 @@ const monkeyPath = 'https://threejs.org/examples/models/json/suzanne_buffergeome
 const monkeyGeometry = await Asset.load<BufferGeometry>(BufferGeometryLoader, monkeyPath);
 monkeyGeometry.computeVertexNormals();
 
+const width = 4000;
+
 const monkeys = new InstancedMesh2({
   geometry: new BoxGeometry(),
   material: new MeshNormalMaterial(),
-  count: 90000,
+  count: 1000000,
   behaviour: InstanceMesh2Behaviour.static,
   onCreateEntity: (obj, index) => {
-    obj.position.randomDirection().multiplyScalar(Math.random() * 5000 + 100);
+    obj.position.random().multiplyScalar(width).subScalar(width / 2);
     obj.quaternion.random();
   }
 });
@@ -33,7 +35,7 @@ main.createView({
   scene,
   camera,
   enabled: false,
-  backgroundColor: 'white',
+  // backgroundColor: 'white',
   onBeforeRender: () => {
     camera.updateMatrixWorld(true);
     monkeys.updateCulling(camera);

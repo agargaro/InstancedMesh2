@@ -1,9 +1,11 @@
-import { Box3 } from 'three';
+import { Box3, Camera, Matrix4 } from 'three';
 import { InstancedEntity } from '../InstancedEntity';
 import { InstancedMesh2 } from '../InstancedMesh2';
+import { Frustum, VisibilityState } from './Frustum';
 
 export interface Node {
   bbox: Float32Array;
+  visibility: VisibilityState;
   left?: Node;
   right?: Node;
   leaves?: InstancedEntity[];
@@ -24,6 +26,9 @@ export class InstancedMeshBVH_2 {
   private _positions: Float32Array;
   private _boundingBoxes: Float32Array;
   private _splitFunction: () => void;
+  private _frustum = new Frustum();
+  private _show: InstancedEntity[];
+  private _hide: InstancedEntity[];
 
   constructor(instancedMesh: InstancedMesh2) {
     this._target = instancedMesh;
@@ -34,7 +39,7 @@ export class InstancedMeshBVH_2 {
     this._maxDepth = maxDepth;
 
     const bbox = this.setup();
-    this.root = { bbox };
+    this.root = { bbox, visibility: VisibilityState.in };
 
     this.buildCenter(this.root, 0, this._target.instances.length, 0);
 
@@ -123,8 +128,8 @@ export class InstancedMeshBVH_2 {
 
     const leftEndOffset = this.split(axis, offset, count, center, bboxLeft, bboxRight);
 
-    node.left = { bbox: bboxLeft };
-    node.right = { bbox: bboxRight };
+    node.left = { bbox: bboxLeft, visibility: VisibilityState.in };
+    node.right = { bbox: bboxRight, visibility: VisibilityState.in };
 
     this.buildCenter(node.left, offset, leftEndOffset - offset, depth);
     this.buildCenter(node.right, leftEndOffset, count - leftEndOffset + offset, depth);
@@ -207,6 +212,43 @@ export class InstancedMeshBVH_2 {
     if (bboxSide[4] < bbox[bboxIndex * 6 + 4]) bboxSide[4] = bbox[bboxIndex * 6 + 4];
     if (bboxSide[5] < bbox[bboxIndex * 6 + 5]) bboxSide[5] = bbox[bboxIndex * 6 + 5];
   }
+
+  public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
+    this._show = show;
+    this._hide = hide;
+
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    this._frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    console.time("culling...");
+    this.checkBoxVisibility(this.root);
+    console.timeEnd("culling...");
+
+    this._show = undefined;
+    this._hide = undefined;
+  }
+
+  private checkBoxVisibility(node: Node, force?: VisibilityState): void {
+    const visibility = force ?? this._frustum.intesectsBox(node.bbox);
+
+    if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
+
+      if (node.leaves) {
+        if (node.visibility === VisibilityState.out) {
+          this._show.push(...node.leaves); // TODO use push for better performance?
+        } else if (visibility === VisibilityState.out) {
+          this._hide.push(...node.leaves); // TODO use push for better performance?
+        }
+      } else {
+        const force = visibility === VisibilityState.intersect ? undefined : visibility;
+        this.checkBoxVisibility(node.left, force);
+        this.checkBoxVisibility(node.right, force);
+      }
+
+      node.visibility = visibility;
+    }
+  }
 }
 
 const _box = new Box3();
+const _projScreenMatrix = new Matrix4();

@@ -64,6 +64,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
 
+    console.time("instancing...");
+
     for (let i = 0; i < count; i++) {
       const instance = new InstancedEntity(this, i, color) as T;
 
@@ -74,6 +76,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
       this.instances[i] = instance;
     }
 
+    console.timeEnd("instancing...");
+
     // TODO fare update in base alle visibilità se onCreateEntity
 
     if (this._perObjectFrustumCulled) {
@@ -83,7 +87,9 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
+      console.time("bvh...");
       this._bvh = new InstancedMeshBVH_2(this).build();
+      console.timeEnd("bvh...");
     }
   }
 
@@ -223,7 +229,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     // console.time("culling");
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
-      // this._bvh.updateCulling(camera, show, hide);
+      this._bvh.updateCulling(camera, show, hide);
     } else {
 
       _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
