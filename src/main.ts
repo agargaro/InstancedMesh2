@@ -1,43 +1,43 @@
-import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
-import { BoxGeometry, BufferGeometry, BufferGeometryLoader, MeshNormalMaterial, Scene } from 'three';
+import { Main, PerspectiveCameraAuto } from '@three.ez/main';
+import { MeshStandardMaterial, PointLight, Scene, SphereGeometry } from 'three';
 import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
 import { InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
+
+const spawn_size = 5000;
+const count = 135000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 const scene = new Scene();
 const camera = new PerspectiveCameraAuto(70, 0.1, 1000);
+const light = new PointLight('white', 15, 0, 0.8);
+camera.add(light);
 
 const controls = new FlyControls(camera, main.renderer.domElement);
 controls.rollSpeed = Math.PI / 4;
 controls.movementSpeed = 50;
 scene.on('animate', (e) => controls.update(e.delta));
 
-const monkeyPath = 'https://threejs.org/examples/models/json/suzanne_buffergeometry.json';
-const monkeyGeometry = await Asset.load<BufferGeometry>(BufferGeometryLoader, monkeyPath);
-monkeyGeometry.computeVertexNormals();
+light.tween<PointLight>().to(2000, { color: 0xffffcc }).yoyoForever().start();
 
-const width = 4000;
-
-const monkeys = new InstancedMesh2({
-  geometry: new BoxGeometry(),
-  material: new MeshNormalMaterial(),
-  count: 1000000,
+const boxes = new InstancedMesh2({
+  geometry: new SphereGeometry(1, 16, 16),
+  material: new MeshStandardMaterial({ metalness: 0.5, roughness: 0.6 }),
+  count,
   behaviour: InstanceMesh2Behaviour.static,
   onCreateEntity: (obj, index) => {
-    obj.position.random().multiplyScalar(width).subScalar(width / 2);
-    obj.quaternion.random();
-  }
+    obj.position
+      .random()
+      .multiplyScalar(spawn_size)
+      .subScalar(spawn_size / 2);
+    obj.scale.setScalar(Math.random() * 4 + 0.1);
+  },
 });
 
-scene.add(monkeys);
+scene.add(boxes);
 
-// main.createView({
-//   scene,
-//   camera,
-//   enabled: false,
-//   // backgroundColor: 'white',
-//   onBeforeRender: () => {
-//     camera.updateMatrixWorld(true);
-//     monkeys.updateCulling(camera);
-//   },
-// });
+const onBeforeRender = () => {
+  camera.updateMatrixWorld(true);
+  boxes.updateCulling(camera);
+};
+
+main.createView({ scene, camera, enabled: false, onBeforeRender });
