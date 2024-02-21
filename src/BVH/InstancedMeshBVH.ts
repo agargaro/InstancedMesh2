@@ -1,38 +1,30 @@
-import { Box3, Camera, Matrix4, Vector3 } from 'three';
+import { Box3, Camera, Matrix4 } from 'three';
 import { InstancedEntity } from '../InstancedEntity';
 import { InstancedMesh2 } from '../InstancedMesh2';
 import { Frustum, VisibilityState } from './Frustum';
 
-// NON CREARE NODI VUOTI?
-// USARE ARRAY CON DIMENSIONI FISSE?
-
 export interface Node {
+  bbox: Float32Array;
+  visibility: VisibilityState;
   left?: Node;
   right?: Node;
-  leaves: InstancedEntity[];
-  bbox: Box3;
-  visibility: VisibilityState;
+  leaves?: InstancedEntity[];
 }
 
-export enum BVHStrategy {
+export enum SplitType {
   center,
   average,
   SAH,
 }
 
-type Axis = 'x' | 'y' | 'z';
-
-const _size = new Vector3();
-const _center = new Vector3();
-const _projScreenMatrix = new Matrix4();
-
-// renderlo compatibile con un array di target
 export class InstancedMeshBVH {
   public root: Node;
   private _target: InstancedMesh2;
   private _maxLeaves: number;
   private _maxDepth: number;
-  private _bboxCache: Box3[];
+  private _indexes: Uint32Array;
+  private _positions: Float32Array;
+  private _boundingBoxes: Float32Array;
   private _frustum = new Frustum();
   private _show: InstancedEntity[];
   private _hide: InstancedEntity[];
@@ -41,79 +33,197 @@ export class InstancedMeshBVH {
     this._target = instancedMesh;
   }
 
-  public build(strategy = BVHStrategy.center, maxLeaves = 10, maxDepth = 40): this {
+  public build(strategy = SplitType.center, maxLeaves = 10, maxDepth = 40): this {
     this._maxLeaves = maxLeaves;
     this._maxDepth = maxDepth;
 
-    if (!this._target.boundingBox) this._target.computeBoundingBox();
-    if (!this._target.geometry.boundingBox) this._target.geometry.computeBoundingBox();
+    console.time("setup...");
+    const bbox = this.setup();
+    console.timeEnd("setup...");
 
-    this.updateBoundingBoxCache();
-    this.root = { leaves: this._target.instances, bbox: this._target.boundingBox, visibility: VisibilityState.in };
+    this.root = { bbox, visibility: VisibilityState.in };
 
-    switch (strategy) {
-      case BVHStrategy.center:
-        this.buildCenter(this.root, 0);
-        break;
-      default:
-        console.error("Not implemented yet.");
-        break;
-    }
+    console.time("bvh...");
+    this.buildNode(this.root, 0, this._target.instances.length, 0);
+    console.timeEnd("bvh...");
 
-    this._bboxCache = undefined;
+    delete this._boundingBoxes;
+    delete this._indexes;
+    delete this._positions;
 
     return this;
   }
 
-  private updateBoundingBoxCache(): void {
+  private setup(): Float32Array {
     const instances = this._target.instances;
     const count = instances.length;
-    const bboxCache = new Array(count);
+    const indexes = new Uint32Array(count);
+    const positions = new Float32Array(count * 3);
+    const bboxes = new Float32Array(count * 6);
+
+    if (!this._target.boundingBox) this._target.computeBoundingBox();
     const bboxGeometry = this._target.geometry.boundingBox;
 
+    let xMin = Number.MAX_SAFE_INTEGER;
+    let yMin = Number.MAX_SAFE_INTEGER;
+    let zMin = Number.MAX_SAFE_INTEGER;
+    let xMax = Number.MIN_SAFE_INTEGER;
+    let yMax = Number.MIN_SAFE_INTEGER;
+    let zMax = Number.MIN_SAFE_INTEGER;
+
     for (let i = 0; i < count; i++) {
-      bboxCache[i] = bboxGeometry.clone().applyMatrix4(instances[i].matrix);
+      indexes[i] = i;
+
+      const bbox = _box.copy(bboxGeometry).applyMatrix4(instances[i].matrix);
+      const min = bbox.min;
+      const max = bbox.max;
+      bboxes[i * 6] = min.x;
+      bboxes[i * 6 + 1] = min.y;
+      bboxes[i * 6 + 2] = min.z;
+      bboxes[i * 6 + 3] = max.x;
+      bboxes[i * 6 + 4] = max.y;
+      bboxes[i * 6 + 5] = max.z;
+
+      const position = instances[i].position;
+      positions[i * 3] = position.x;
+      positions[i * 3 + 1] = position.y;
+      positions[i * 3 + 2] = position.z;
+
+      if (xMin > min.x) xMin = min.x;
+      if (yMin > min.y) yMin = min.y;
+      if (zMin > min.z) zMin = min.z;
+      if (xMax < max.x) xMax = max.x;
+      if (yMax < max.y) yMax = max.y;
+      if (zMax < max.z) zMax = max.z;
     }
 
-    this._bboxCache = bboxCache;
+    this._boundingBoxes = bboxes;
+    this._indexes = indexes;
+    this._positions = positions;
+
+    return new Float32Array([xMin, yMin, zMin, xMax, yMax, zMax]); // can be done faster
   }
 
-  private getLongestAxis(node: Node): Axis {
-    node.bbox.getSize(_size);
-    if (_size.x > _size.y) return _size.x > _size.z ? 'x' : 'z';
-    return _size.y > _size.z ? 'y' : 'z';
+  private buildNode(node: Node, offset: number, count: number, depth: number): void {
+    if (depth++ >= this._maxDepth || count <= this._maxLeaves) {
+      node.leaves = this.getLeaves(offset, count);
+      return;
+    }
+
+    const bbox = node.bbox;
+    const axis = this.getLongestAxis(bbox);
+    const bboxLeft = new Float32Array(6);
+    const bboxRight = new Float32Array(6);
+    const center = (bbox[axis] + bbox[axis + 3]) / 2;
+
+    this.createNodes(bboxLeft, bboxRight);
+
+    const leftEndOffset = this.split(axis, offset, count, center, bboxLeft, bboxRight);
+
+    if (leftEndOffset === offset || leftEndOffset === offset + count) {
+      node.leaves = this.getLeaves(offset, count);
+      return;
+    }
+
+    node.left = { bbox: bboxLeft, visibility: VisibilityState.in };
+    node.right = { bbox: bboxRight, visibility: VisibilityState.in };
+
+    this.buildNode(node.left, offset, leftEndOffset - offset, depth);
+    this.buildNode(node.right, leftEndOffset, count - leftEndOffset + offset, depth);
   }
 
-  private buildCenter(node: Node, depth: number): void {
-    const axis = this.getLongestAxis(node);
-    const leaves = node.leaves;
-    const center = node.bbox.getCenter(_center)[axis];
+  private getLeaves(offset: number, count: number): InstancedEntity[] {
+    const array = new Array(count);
+    const instances = this._target.instances;
 
-    const leavesLeft: InstancedEntity[] = [];
-    const leavesRight: InstancedEntity[] = [];
-    const bboxLeft = new Box3();
-    const bboxRight = new Box3();
+    for (let i = 0; i < count; i++) {
+      array[i] = instances[this._indexes[offset + i]];
+    }
 
-    node.left = { leaves: leavesLeft, bbox: bboxLeft, visibility: VisibilityState.in };
-    node.right = { leaves: leavesRight, bbox: bboxRight, visibility: VisibilityState.in };
+    return array;
+  }
 
-    for (let i = 0, c = leaves.length; i < c; i++) {
-      const obj = leaves[i];
+  private getLongestAxis(bbox: Float32Array): number {
+    const xSize = bbox[3] - bbox[0];
+    const ySize = bbox[4] - bbox[1];
+    const zSize = bbox[5] - bbox[2];
+    if (xSize > ySize) return xSize > zSize ? 0 : 2;
+    return ySize > zSize ? 1 : 2;
+  }
 
-      if (obj.position[axis] <= center) {
-        leavesLeft.push(obj);
-        bboxLeft.union(this._bboxCache[obj.id]);
-      } else {
-        leavesRight.push(obj);
-        bboxRight.union(this._bboxCache[obj.id]);
+  private createNodes(bboxLeft: Float32Array, bboxRight: Float32Array): void {
+    bboxLeft[0] = Number.MAX_SAFE_INTEGER;
+    bboxLeft[1] = Number.MAX_SAFE_INTEGER;
+    bboxLeft[2] = Number.MAX_SAFE_INTEGER;
+    bboxLeft[3] = Number.MIN_SAFE_INTEGER;
+    bboxLeft[4] = Number.MIN_SAFE_INTEGER;
+    bboxLeft[5] = Number.MIN_SAFE_INTEGER;
+
+    bboxRight[0] = Number.MAX_SAFE_INTEGER;
+    bboxRight[1] = Number.MAX_SAFE_INTEGER;
+    bboxRight[2] = Number.MAX_SAFE_INTEGER;
+    bboxRight[3] = Number.MIN_SAFE_INTEGER;
+    bboxRight[4] = Number.MIN_SAFE_INTEGER;
+    bboxRight[5] = Number.MIN_SAFE_INTEGER;
+  }
+
+  private split(axis: number, offset: number, count: number, center: number, bboxLeft: Float32Array, bboxRight: Float32Array) {
+    const pos = this._positions;
+    let left = offset;
+    let right = offset + count - 1;
+
+    while (left <= right) {
+      if (pos[left * 3 + axis] > center) {
+        while (true) {
+          if (pos[right * 3 + axis] < center) {
+            this.swap(left, right);
+            this.unionBBox(right, bboxRight);
+            right--;
+            break;
+          }
+          this.unionBBox(right, bboxRight);
+          right--;
+          if (right < left) return left;
+        }
       }
+      this.unionBBox(left, bboxLeft);
+      left++;
     }
 
-    node.leaves = undefined;
+    return left;
+  }
 
-    if (++depth >= this._maxDepth) return;
-    if (leavesLeft.length > this._maxLeaves) this.buildCenter(node.left, depth);
-    if (leavesRight.length > this._maxLeaves) this.buildCenter(node.right, depth);
+  private swap(left: number, right: number): void {
+    const pos = this._positions;
+    const index = this._indexes;
+
+    let temp = pos[left * 3];
+    pos[left * 3] = pos[right * 3];
+    pos[right * 3] = temp;
+
+    temp = pos[left * 3 + 1];
+    pos[left * 3 + 1] = pos[right * 3 + 1];
+    pos[right * 3 + 1] = temp;
+
+    temp = pos[left * 3 + 2];
+    pos[left * 3 + 2] = pos[right * 3 + 2];
+    pos[right * 3 + 2] = temp;
+
+    temp = index[left];
+    index[left] = index[right];
+    index[right] = temp;
+  }
+
+  private unionBBox(index: number, bboxSide: Float32Array): void {
+    const bboxIndex = this._indexes[index];
+    const bbox = this._boundingBoxes;
+
+    if (bboxSide[0] > bbox[bboxIndex * 6]) bboxSide[0] = bbox[bboxIndex * 6];
+    if (bboxSide[1] > bbox[bboxIndex * 6 + 1]) bboxSide[1] = bbox[bboxIndex * 6 + 1];
+    if (bboxSide[2] > bbox[bboxIndex * 6 + 2]) bboxSide[2] = bbox[bboxIndex * 6 + 2];
+    if (bboxSide[3] < bbox[bboxIndex * 6 + 3]) bboxSide[3] = bbox[bboxIndex * 6 + 3];
+    if (bboxSide[4] < bbox[bboxIndex * 6 + 4]) bboxSide[4] = bbox[bboxIndex * 6 + 4];
+    if (bboxSide[5] < bbox[bboxIndex * 6 + 5]) bboxSide[5] = bbox[bboxIndex * 6 + 5];
   }
 
   public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
@@ -123,7 +233,9 @@ export class InstancedMeshBVH {
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
 
+    // console.time("culling...");
     this.checkBoxVisibility(this.root);
+    // console.timeEnd("culling...");
 
     this._show = undefined;
     this._hide = undefined;
@@ -151,16 +263,5 @@ export class InstancedMeshBVH {
   }
 }
 
-Vector3.prototype.min = function (v) {
-  if (this.x > v.x) this.x = v.x;
-  if (this.y > v.y) this.y = v.y;
-  if (this.z > v.z) this.z = v.z;
-  return this;
-};
-
-Vector3.prototype.max = function (v) {
-  if (this.x < v.x) this.x = v.x;
-  if (this.y < v.y) this.y = v.y;
-  if (this.z < v.z) this.z = v.z;
-  return this;
-};
+const _box = new Box3();
+const _projScreenMatrix = new Matrix4();

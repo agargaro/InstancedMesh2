@@ -1,6 +1,6 @@
 import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, StreamDrawUsage, Vector3 } from 'three';
 import { InstancedEntity } from './InstancedEntity';
-import { InstancedMeshBVH_2 } from './BVH/InstancedMeshBVH_new';
+import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
 
 export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
@@ -32,7 +32,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
   private _behaviour: InstanceMesh2Behaviour;
-  private _bvh: InstancedMeshBVH_2;
+  private _bvh: InstancedMeshBVH;
   private _instancedAttributes: InstancedBufferAttribute[];
 
   // public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
@@ -87,9 +87,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
 
     if (this._behaviour === InstanceMesh2Behaviour.static) {
-      console.time("bvh...");
-      this._bvh = new InstancedMeshBVH_2(this).build();
-      console.timeEnd("bvh...");
+      this._bvh = new InstancedMeshBVH(this).build();
     }
   }
 

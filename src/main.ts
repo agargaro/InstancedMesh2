@@ -31,13 +31,13 @@ const monkeys = new InstancedMesh2({
 
 scene.add(monkeys);
 
-main.createView({
-  scene,
-  camera,
-  enabled: false,
-  // backgroundColor: 'white',
-  onBeforeRender: () => {
-    camera.updateMatrixWorld(true);
-    monkeys.updateCulling(camera);
-  },
-});
+// main.createView({
+//   scene,
+//   camera,
+//   enabled: false,
+//   // backgroundColor: 'white',
+//   onBeforeRender: () => {
+//     camera.updateMatrixWorld(true);
+//     monkeys.updateCulling(camera);
+//   },
+// });
