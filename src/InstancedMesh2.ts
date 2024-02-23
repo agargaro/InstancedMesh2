@@ -104,6 +104,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   }
 
   private setInstancesVisibility(show: T[], hide: T[]): void {
+    // console.time("swapping");
+
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
 
@@ -120,7 +122,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (show.length > hide.length) this.showInstances(show, length);
     else this.hideInstances(hide, hide.length - length);
-
+    
+    // console.timeEnd("swapping");
   }
 
   private showInstances(entities: T[], count: number): void {

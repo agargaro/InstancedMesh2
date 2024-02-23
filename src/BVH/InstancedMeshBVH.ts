@@ -238,9 +238,7 @@ export class InstancedMeshBVH {
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-    // console.time("culling...");
     this.checkBoxVisibility(this.root);
-    // console.timeEnd("culling...");
 
     this._show = undefined;
     this._hide = undefined;

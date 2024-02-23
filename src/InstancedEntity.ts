@@ -12,8 +12,8 @@ export class InstancedEntity {
   public readonly quaternion: Quaternion;
   /** @internal */ public _internalId: number;
   /** @internal */ public _visible: boolean;
-  /** @internal */ public _inFrustum = true; // todo capire se ha senso metterla sempre
-  /** @internal */ public _matrixNeedsUpdate = false; // todo capire se ha senso metterla sempre
+  /** @internal */ public _inFrustum: boolean;
+  /** @internal */ public _matrixNeedsUpdate: boolean;
 
   public get internalId(): number { return this._internalId }
 
@@ -134,13 +134,30 @@ export class InstancedEntity {
     return this;
   }
 
+  public rotateX(angle: number) {
+    return this.rotateOnAxis(_xAxis, angle);
+  }
+
+  public rotateY(angle: number) {
+    return this.rotateOnAxis(_yAxis, angle);
+  }
+
+  public rotateZ(angle: number) {
+    return this.rotateOnAxis(_zAxis, angle);
+  }
+
   // add other Object3D methods
 }
 
 InstancedEntity.prototype.isInstanceEntity = true;
 InstancedEntity.prototype.type = 'InstancedEntity';
 InstancedEntity.prototype._visible = true;
+InstancedEntity.prototype._inFrustum = true;
+InstancedEntity.prototype._matrixNeedsUpdate = false;
 
 const _q = new Quaternion();
 const _m = new Matrix4();
 const _c = new Color();
+const _xAxis = new Vector3(1, 0, 0);
+const _yAxis = new Vector3(0, 1, 0);
+const _zAxis = new Vector3(0, 0, 1);

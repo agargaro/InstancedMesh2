@@ -1,43 +1,46 @@
-import { Main, PerspectiveCameraAuto } from '@three.ez/main';
-import { MeshStandardMaterial, PointLight, Scene, SphereGeometry } from 'three';
-import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
-import { Behaviour, InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
+import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
+import { BufferGeometry, Fog, Mesh, MeshPhongMaterial, MeshStandardMaterial, PlaneGeometry, PointLight, Scene } from 'three';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
+import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Behaviour, InstancedMesh2 } from './InstancedMesh2';
 
-const spawn_size = 5000;
-const count = 135000;
+const spawn_size = 50000;
+const count = 500000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 const scene = new Scene();
-const camera = new PerspectiveCameraAuto(70, 0.1, 1000);
-const light = new PointLight('white', 15, 0, 0.8);
+const camera = new PerspectiveCameraAuto(70, 0.1, 4000).translateY(300).translateX(500);
+scene.fog = new Fog('gray', 500, 3000);
+const light = new PointLight('white', 10, 0, 0.1);
 camera.add(light);
 
-const controls = new FlyControls(camera, main.renderer.domElement);
-controls.rollSpeed = Math.PI / 4;
-controls.movementSpeed = 50;
-scene.on('animate', (e) => controls.update(e.delta));
+const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, 'tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
 
-light.tween<PointLight>().to(2000, { color: 0xffffcc }).yoyoForever().start();
-
-const boxes = new InstancedMesh2({
-  geometry: new SphereGeometry(1, 16, 16),
-  material: new MeshStandardMaterial({ metalness: 0.5, roughness: 0.6 }),
+const trees = new InstancedMesh2({
+  geometry: treeGLTF.geometry,
+  material: treeGLTF.material,
   count,
   behaviour: Behaviour.static,
   onInstanceCreation: (obj, index) => {
-    obj.position
-      .random()
-      .multiplyScalar(spawn_size)
-      .subScalar(spawn_size / 2);
-    obj.scale.setScalar(Math.random() * 4 + 0.1);
+    obj.position.setX(Math.random() * spawn_size - spawn_size / 2).setZ(Math.random() * spawn_size - spawn_size / 2);
+    obj.scale.setScalar(Math.random() * 0.1 + 0.1);
+    obj.rotateY(Math.random() * Math.PI * 2);
   },
 });
 
-scene.add(boxes);
+const terrain = new Mesh(new PlaneGeometry(spawn_size, spawn_size, 10, 10), new MeshPhongMaterial({ color: 0x4d7e47 }));
+terrain.rotateX(Math.PI / -2);
 
-const onBeforeRender = () => {
-  camera.updateMatrixWorld(true);
-  boxes.updateCulling(camera);
-};
+scene.add(trees, terrain);
 
-main.createView({ scene, camera, enabled: false, onBeforeRender });
+main.createView({
+  scene, camera, enabled: false, backgroundColor: 0xb7d9ea, onBeforeRender: () => {
+    camera.updateMatrixWorld(true);
+    trees.updateCulling(camera);
+  }
+});
+
+const controls = new MapControls(camera, main.renderer.domElement);
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.minDistance = 100;
+controls.maxDistance = 1000;
