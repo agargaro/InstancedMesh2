@@ -1,10 +1,10 @@
-import { BufferGeometry, Camera, Color, ColorRepresentation, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, StreamDrawUsage, Vector3 } from 'three';
-import { InstancedEntity } from './InstancedEntity';
+import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
 import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
+import { InstancedEntity } from './InstancedEntity';
 
 export type CreateEntityCallback<T> = (obj: T, index: number) => void;
 
-export enum InstanceMesh2Behaviour {
+export enum Behaviour {
   static,
   dynamic
 }
@@ -13,16 +13,12 @@ export interface InstancedMesh2Params<G, M, T> {
   geometry: G;
   material: M;
   count: number;
-  onCreateEntity: CreateEntityCallback<T>;
-  color?: ColorRepresentation;
-  behaviour?: InstanceMesh2Behaviour;
-  // TODO perObjectFrustumCulled?: boolean;
+  color?: ColorRepresentation; // TODO remove?
+  onInstanceCreation: CreateEntityCallback<T>;
+  behaviour?: Behaviour;
+  perObjectFrustumCulled?: boolean;
+  createEntities?: boolean;
 }
-
-const _color = new Color();
-const _frustum = new Frustum();
-const _projScreenMatrix = new Matrix4();
-const _sphere = new Sphere();
 
 export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
@@ -31,35 +27,23 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
   private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
-  private _behaviour: InstanceMesh2Behaviour;
+  private _behaviour: Behaviour;
   private _bvh: InstancedMeshBVH;
   private _instancedAttributes: InstancedBufferAttribute[];
-
-  // public get perObjectFrustumCulled() { return this._perObjectFrustumCulled }
-  // public set perObjectFrustumCulled(value: boolean) {
-  //   if (this._perObjectFrustumCulled === value) return;
-  //   if (value) {
-  //     this.enablePerObjectFrustumCulled();
-  //   } else {
-  //     this.disablePerObjectFrustumCulled();
-  //   }
-  //   this.frustumCulled = !value;
-  //   this._perObjectFrustumCulled = value;
-  // }
 
   constructor(params: InstancedMesh2Params<G, M, T>) {
     if (params === undefined) throw (new Error("params is mandatory"));
     if (params.geometry === undefined) throw (new Error("geometry is mandatory"));
     if (params.material === undefined) throw (new Error("material is mandatory"));
     if (params.count === undefined) throw (new Error("count is mandatory"));
-    if (params.onCreateEntity === undefined) throw (new Error("onCreateEntity is mandatory"));
+    if (params.onInstanceCreation === undefined) throw (new Error("onInstanceCreation is mandatory"));
 
     super(params.geometry, params.material, params.count);
 
     const count = params.count;
     const color = params.color !== undefined ? _color.set(params.color) : undefined;
-    const onCreateEntity = params.onCreateEntity;
-    this._behaviour = params.behaviour ?? InstanceMesh2Behaviour.static;
+    const onInstanceCreation = params.onInstanceCreation;
+    this._behaviour = params.behaviour ?? Behaviour.static;
 
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
@@ -69,7 +53,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     for (let i = 0; i < count; i++) {
       const instance = new InstancedEntity(this, i, color) as T;
 
-      onCreateEntity(instance, i);
+      onInstanceCreation(instance, i);
       instance.forceUpdateMatrix();
 
       this._internalInstances[i] = instance;
@@ -82,12 +66,11 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (this._perObjectFrustumCulled) {
       this.updateInstancedAttributes();
-      this.frustumCulled = false;  // TODO capire
-      // assegnare bbox calcolato?
-    }
+      this.frustumCulled = false; // todo gestire a true solamente quando count è 0 e mettere bbox 
 
-    if (this._behaviour === InstanceMesh2Behaviour.static) {
-      this._bvh = new InstancedMeshBVH(this).build();
+      if (this._behaviour === Behaviour.static) {
+        this._bvh = new InstancedMeshBVH(this).build();
+      }
     }
   }
 
@@ -99,7 +82,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     for (const key in attributes) {
       const attr = attributes[key] as InstancedBufferAttribute;
       if ((attr as any).isInstancedBufferAttribute) { // TODO FIX d.ts and remove any
-        attr.setUsage(StreamDrawUsage);
+        attr.setUsage(DynamicDrawUsage);
         instancedAttributes.push(attr);
       }
     }
@@ -174,22 +157,36 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   private swapInstance(instanceFrom: T, idTo: number): void {
     const instanceTo = this._internalInstances[idTo];
-    if (instanceFrom === instanceTo) return;
+    if (instanceFrom === instanceTo) return; //TODO ottimizzare per non farlo capitare?
     const idFrom = instanceFrom._internalId;
+
     this.swapAttributes(idFrom, idTo);
-    this._internalInstances[idTo] = instanceFrom;
-    this._internalInstances[idFrom] = instanceTo;
+
+    const temp = instanceTo.matrixArray;
+    instanceTo.matrixArray = instanceFrom.matrixArray;
+    instanceFrom.matrixArray = temp;
+
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
+
+    this._internalInstances[idTo] = instanceFrom;
+    this._internalInstances[idFrom] = instanceTo;
   }
 
   private swapInstance2(instanceFrom: T, instanceTo: T): void {
     // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
     const idFrom = instanceFrom._internalId;
     const idTo = instanceTo._internalId;
+
     this.swapAttributes(idFrom, idTo);
+
+    const temp = instanceTo.matrixArray;
+    instanceTo.matrixArray = instanceFrom.matrixArray;
+    instanceFrom.matrixArray = temp;
+
     this._internalInstances[idTo] = instanceFrom;
     this._internalInstances[idFrom] = instanceTo;
+
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
   }
@@ -226,42 +223,44 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     // console.time("culling");
 
-    if (this._behaviour === InstanceMesh2Behaviour.static) {
+    if (this._behaviour === Behaviour.static) {
       this._bvh.updateCulling(camera, show, hide);
     } else {
-
-      _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-      _frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-      const instances = this.instances;
-      const bSphere = this.geometry.boundingSphere;
-      const radius = bSphere.radius;
-      const center = bSphere.center;
-
-      for (let i = 0, l = this.internalCount; i < l; i++) {
-        const instance = instances[i];
-        if (instance._visible === false) continue;
-
-        // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
-
-        _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
-        _sphere.radius = radius * this.getMax(instance.scale);
-
-        if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-          if (instance._inFrustum === true) show.push(instance);
-          else hide.push(instance);
-        }
-
-        if (instance._inFrustum && instance._matrixNeedsUpdate) {
-          this.composeToArray(instance);
-          instance._matrixNeedsUpdate = false;
-        }
-      }
+      this.checkDynamicFrustum(camera, show, hide);
     }
 
     // console.timeEnd("culling");
 
     if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
+  }
+
+  private checkDynamicFrustum(camera: Camera, show: T[], hide: T[]): void {
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    _frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+    const instances = this.instances;
+    const bSphere = this.geometry.boundingSphere;
+    const radius = bSphere.radius;
+    const center = bSphere.center;
+
+    for (let i = 0, l = this.instances.length; i < l; i++) {
+      const instance = instances[i];
+      if (instance._visible === false) continue;
+
+      // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
+
+      _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
+      _sphere.radius = radius * this.getMax(instance.scale);
+
+      if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
+        if (instance._inFrustum === true) show.push(instance);
+        else hide.push(instance);
+      }
+
+      if (instance._inFrustum && instance._matrixNeedsUpdate) {
+        instance.forceUpdateMatrix();
+      }
+    }
   }
 
   // this is faster than Math.max(scale.x, scale.y, scale.z)
@@ -276,104 +275,15 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
   }
-
-  public updateInstanceMatrix(instance: InstancedEntity): void {
-    if (this._perObjectFrustumCulled === true || instance._visible === false) {
-      instance._matrixNeedsUpdate = true;
-    } else {
-      this.composeToArray(instance);
-    }
-  }
-
-  public forceUpdateInstanceMatrix(instance: InstancedEntity): void {
-    this.composeToArray(instance);
-    instance._matrixNeedsUpdate = false;
-  }
-
-  /** @internal updated to r159 Matrix4.ts */
-  public composeToArray(instance: InstancedEntity): void {
-    const te = this.instanceMatrix.array;
-    const position = instance.position;
-    const quaternion = instance.quaternion as any;
-    const scale = instance.scale;
-    const offset = instance._internalId * 16;
-
-    const x = quaternion._x,
-      y = quaternion._y,
-      z = quaternion._z,
-      w = quaternion._w;
-    const x2 = x + x,
-      y2 = y + y,
-      z2 = z + z;
-    const xx = x * x2,
-      xy = x * y2,
-      xz = x * z2;
-    const yy = y * y2,
-      yz = y * z2,
-      zz = z * z2;
-    const wx = w * x2,
-      wy = w * y2,
-      wz = w * z2;
-
-    const sx = scale.x,
-      sy = scale.y,
-      sz = scale.z;
-
-    te[offset] = (1 - (yy + zz)) * sx;
-    te[offset + 1] = (xy + wz) * sx;
-    te[offset + 2] = (xz - wy) * sx;
-    te[offset + 3] = 0;
-
-    te[offset + 4] = (xy - wz) * sy;
-    te[offset + 5] = (1 - (xx + zz)) * sy;
-    te[offset + 6] = (yz + wx) * sy;
-    te[offset + 7] = 0;
-
-    te[offset + 8] = (xz + wy) * sz;
-    te[offset + 9] = (yz - wx) * sz;
-    te[offset + 10] = (1 - (xx + yy)) * sz;
-    te[offset + 11] = 0;
-
-    te[offset + 12] = position.x;
-    te[offset + 13] = position.y;
-    te[offset + 14] = position.z;
-    te[offset + 15] = 1;
-  }
-
-  public setCount(value: number): void {
-    // rifare meglio
-    for (let i = 0, l = this.instances.length; i < l; i++) {
-      const instance = this.instances[i];
-      if (instance._visible !== i < value) {
-        if (i < value) {
-          instance.visible = true;
-          instance._inFrustum = true;
-        } else {
-          instance.visible = false;
-        }
-      }
-    }
-    this.internalCount = value;
-    this.needsUpdate();
-  }
-
-  // public enablePerObjectFrustumCulled(): void {
-  //   for (let i = 0, l = this.instances.length; i < l; i++) {
-  //     this.instances[i]._inFrustum = true;
-  //   }
-  // }
-
-  // public disablePerObjectFrustumCulled(): void {
-  //   const show: T[] = [];
-  //   for (let i = 0, l = this.instances.length; i < l; i++) {
-  //     const instance = this.instances[i];
-  //     if (!instance._inFrustum && instance.visible) show.push(instance);
-  //   }
-  //   this.setInstancesVisibility(show, []);
-  // }
 }
 
 InstancedMesh2.prototype.isInstancedMesh2 = true;
 InstancedMesh2.prototype.type = 'InstancedMesh2';
 
-//TODO not swap matrix if needsUpdate = true
+const _color = new Color();
+const _frustum = new Frustum();
+const _projScreenMatrix = new Matrix4();
+const _sphere = new Sphere();
+
+//TODO not swap matrix if needsUpdate = true ?
+// TODO creare un altro metodo di needUpdate se cambia colore

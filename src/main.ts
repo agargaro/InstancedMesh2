@@ -1,7 +1,7 @@
 import { Main, PerspectiveCameraAuto } from '@three.ez/main';
 import { MeshStandardMaterial, PointLight, Scene, SphereGeometry } from 'three';
 import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
-import { InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
+import { Behaviour, InstanceMesh2Behaviour, InstancedMesh2 } from './InstancedMesh2';
 
 const spawn_size = 5000;
 const count = 135000;
@@ -23,8 +23,8 @@ const boxes = new InstancedMesh2({
   geometry: new SphereGeometry(1, 16, 16),
   material: new MeshStandardMaterial({ metalness: 0.5, roughness: 0.6 }),
   count,
-  behaviour: InstanceMesh2Behaviour.static,
-  onCreateEntity: (obj, index) => {
+  behaviour: Behaviour.static,
+  onInstanceCreation: (obj, index) => {
     obj.position
       .random()
       .multiplyScalar(spawn_size)
