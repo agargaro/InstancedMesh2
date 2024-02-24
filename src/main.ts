@@ -1,13 +1,13 @@
 import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
-import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
+import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshLambertMaterial, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { Behaviour, InstancedMesh2 } from './InstancedMesh2';
 // import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 
-const terrainSize = 10000;
-const count = 10000;
+const terrainSize = 100000;
+const count = 1000000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 main.renderer.toneMapping = ACESFilmicToneMapping;
@@ -30,7 +30,7 @@ const trees = new InstancedMesh2({
   },
 });
 
-const terrain = new Mesh(new PlaneGeometry(terrainSize, terrainSize, 10, 10), new MeshStandardMaterial({ color: 0x4d7e47, roughness: 1, metalness: 0 }));
+const terrain = new Mesh(new PlaneGeometry(terrainSize, terrainSize, 10, 10), new MeshLambertMaterial({ color: 0x008844 }));
 terrain.rotateX(Math.PI / -2);
 
 const sun = new Vector3();
@@ -49,7 +49,7 @@ sky.on('animate', (e) => {
 
 const dirLight = new DirectionalLight('white');
 dirLight.on('animate', (e) => {
-  dirLight.intensity = 15 - (1 - sun.y) * 15;
+  dirLight.intensity = 10 - (1 - sun.y) * 10;
   dirLight.position.copy(sun).multiplyScalar(terrainSize);
   dirLight.target.position.copy(sun).multiplyScalar(-terrainSize);
 });
