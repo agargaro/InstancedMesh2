@@ -274,7 +274,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   private needsUpdate(): void {
     for (const attr of this._instancedAttributes) {
-      attr.needsUpdate = true;
+      attr.needsUpdate = true; // capire
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
   }
