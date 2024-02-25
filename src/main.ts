@@ -1,5 +1,5 @@
 import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
-import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshLambertMaterial, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
+import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
@@ -30,17 +30,15 @@ const trees = new InstancedMesh2({
   },
 });
 
-const terrain = new Mesh(new PlaneGeometry(terrainSize, terrainSize, 10, 10), new MeshLambertMaterial({ color: 0x008844 }));
+const terrain = new Mesh(new PlaneGeometry(terrainSize, terrainSize, 10, 10), new MeshLambertMaterial({ color: 0x004622 }));
 terrain.rotateX(Math.PI / -2);
 
 const sun = new Vector3();
 const sky = new Sky();
 sky.scale.setScalar(450000);
 const uniforms = sky.material.uniforms;
-uniforms['turbidity'].value = 10;
-uniforms['rayleigh'].value = 3;
-uniforms['mieCoefficient'].value = 0.005;
-uniforms['mieDirectionalG'].value = 0.7;
+uniforms['turbidity'].value = 5;
+uniforms['rayleigh'].value = 2;
 
 sky.on('animate', (e) => {
   sun.setFromSphericalCoords(1, Math.PI / -1.9 + e.total * 0.02, Math.PI / 1.4);
@@ -49,12 +47,12 @@ sky.on('animate', (e) => {
 
 const dirLight = new DirectionalLight('white');
 dirLight.on('animate', (e) => {
-  dirLight.intensity = 10 - (1 - sun.y) * 10;
+  dirLight.intensity = sun.y > 0.1 ? 10 : Math.max(0, sun.y / 0.1 * 10);
   dirLight.position.copy(sun).multiplyScalar(terrainSize);
   dirLight.target.position.copy(sun).multiplyScalar(-terrainSize);
 });
 
-scene.add(sky, trees, terrain, new AmbientLight('white', 1.5), dirLight, dirLight.target);
+scene.add(sky, trees, terrain, new AmbientLight(), dirLight, dirLight.target);
 
 scene.fog = new FogExp2('white', 0.0005);
 scene.on('animate', (e) => scene.fog.color.setHSL(0, 0, sun.y));
