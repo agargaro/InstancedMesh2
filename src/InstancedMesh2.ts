@@ -17,7 +17,7 @@ export interface InstancedMesh2Params<G, M, T> {
   onInstanceCreation: CreateEntityCallback<T>;
   behaviour?: Behaviour;
   perObjectFrustumCulled?: boolean;
-  createEntities?: boolean;
+  // createEntities?: boolean;
 }
 
 export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
@@ -26,7 +26,6 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   public instances: T[];
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
-  private _sortComparer = (a: InstancedEntity, b: InstancedEntity) => a._internalId - b._internalId;
   private _behaviour: Behaviour;
   private _bvh: InstancedMeshBVH;
   private _instancedAttributes: InstancedBufferAttribute[];
@@ -104,13 +103,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   }
 
   private setInstancesVisibility(show: T[], hide: T[]): void {
-    // console.time("swapping");
-
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
-
-    show = show.sort(this._sortComparer); // check if this sort is good
-    hide = hide.sort(this._sortComparer);
 
     for (let i = 0; i < length; i++) {
       this.swapInstance2(show[i], hide[hideLengthMinus - i]);
@@ -122,38 +116,26 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (show.length > hide.length) this.showInstances(show, length);
     else this.hideInstances(hide, hide.length - length);
-    
-    // console.timeEnd("swapping");
   }
 
   private showInstances(entities: T[], count: number): void {
-    // add opt if needs to show all?
     let startIndex = count;
     let endIndex = entities.length - 1;
 
     while (endIndex >= startIndex) {
-      if (entities[startIndex]._internalId === this.count) {
-        startIndex++;
-      } else {
-        this.swapInstance(entities[endIndex], this.count);
-        endIndex--;
-      }
+      this.swapInstance(entities[endIndex], this.count);
+      endIndex--;
       this.count++;
     }
   }
 
   private hideInstances(entities: T[], count: number): void {
-    // add opt if needs to hide all?
     let startIndex = 0;
     let endIndex = count - 1;
 
     while (endIndex >= startIndex) {
-      if (entities[endIndex]._internalId === this.count - 1) {
-        endIndex--;
-      } else {
-        this.swapInstance(entities[startIndex], this.count - 1);
-        startIndex++;
-      }
+      this.swapInstance(entities[startIndex], this.count - 1);
+      startIndex++;
       this.count--;
     }
   }
@@ -288,5 +270,5 @@ const _frustum = new Frustum();
 const _projScreenMatrix = new Matrix4();
 const _sphere = new Sphere();
 
-//TODO not swap matrix if needsUpdate = true ?
+// TODO not swap matrix if needsUpdate = true ?
 // TODO creare un altro metodo di needUpdate se cambia colore

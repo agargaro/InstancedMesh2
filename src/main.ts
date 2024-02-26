@@ -1,13 +1,13 @@
 import { Asset, Main, PerspectiveCameraAuto } from '@three.ez/main';
-import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
+import { ACESFilmicToneMapping, AmbientLight, BufferGeometry, DirectionalLight, FogExp2, Mesh, MeshLambertMaterial, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
+import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { Behaviour, InstancedMesh2 } from './InstancedMesh2';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 
 const count = 1000000;
-const terrainSize = 200000;
+const terrainSize = 300000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 main.renderer.toneMapping = ACESFilmicToneMapping;
@@ -71,6 +71,6 @@ controls.minDistance = 100;
 controls.maxDistance = 1000;
 
 const gui = new GUI();
-gui.add(trees.instances, 'length').name("instances total").disable();
+gui.add(trees.instances as any, 'length').name("instances total").disable();
 const treeCount = gui.add(trees, 'count').name("instances rendered").disable();
 gui.add(camera, 'far', 1000, 10000, 100).name("camera far").onChange(() => camera.updateProjectionMatrix());

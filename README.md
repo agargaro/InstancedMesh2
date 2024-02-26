@@ -15,3 +15,5 @@ TODO:
 -interesction opt if culled culling
 -loading handling 
 -instancedEntity creation flag
+-handle update function (if change visibility)
+-set custom mode if only rotate, translate, scale
