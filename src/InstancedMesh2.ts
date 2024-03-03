@@ -89,7 +89,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
   /** @internal */
   public setInstanceVisibility(instance: Entity<T>, value: boolean): void {
-    if (value === (instance._visible && (!this._perObjectFrustumCulled || instance._inFrustum))) return;
+    if (value === (instance._visible && (!this._perObjectFrustumCulled || instance._inFrustum))) return; // capire
     if (value === true) {
       this.swapInstance(instance, this.count);
       this.count++;

@@ -6,7 +6,7 @@ export enum VisibilityState {
   out
 }
 
-/** @LASTREV 161 */
+/** @LASTREV 162 Frustum */
 export class Frustum {
   public planes: Plane[];
 

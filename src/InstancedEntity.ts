@@ -54,7 +54,7 @@ export class InstancedEntity {
     this._matrixNeedsUpdate = false;
   }
 
-  /** @internal @LASTREV 162 Matrix4.ts */
+  /** @internal @LASTREV 162 Matrix4 */
   protected composeToArray(): void {
     const te = this.matrixArray;
     const position = this.position;

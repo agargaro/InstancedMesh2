@@ -55,7 +55,7 @@ scene.fog = new FogExp2('white', 0.0004);
 scene.on('animate', (e) => scene.fog.color.setHSL(0, 0, sun.y));
 
 main.createView({
-  scene, camera, enabled: false, backgroundColor: 0x005e2f, onBeforeRender: () => {
+  scene, camera, enabled: false, onBeforeRender: () => {
     camera.updateMatrixWorld(true);
     trees.updateCulling(camera);
     treeCount.updateDisplay();
