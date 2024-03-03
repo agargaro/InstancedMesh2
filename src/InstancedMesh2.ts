@@ -254,7 +254,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
   private needsUpdate(): void {
     for (const attr of this._instancedAttributes) {
-      // attr.clearUpdateRanges();
+      attr.clearUpdateRanges(); // TODO this can be improved
       attr.needsUpdate = true;
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
@@ -270,4 +270,3 @@ const _projScreenMatrix = new Matrix4();
 const _sphere = new Sphere();
 
 // TODO not swap matrix if needsUpdate = true ?
-// TODO creare un altro metodo di needUpdate se cambia colore
