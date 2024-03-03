@@ -3,19 +3,13 @@ import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
 import { InstancedEntity } from './InstancedEntity';
 
 export type CreateEntityCallback<T> = (obj: T, index: number) => void;
+export const INSTANCEDMESH2_STATIC = 0;
+export const INSTANCEDMESH2_DYNAMIC = 1;
 
-export enum Behaviour {
-  static,
-  dynamic
-}
-
-export interface InstancedMesh2Params<G, M, T> {
-  geometry: G;
-  material: M;
-  count: number;
-  color?: ColorRepresentation; // TODO remove?
+export interface InstancedMesh2Params<T> {
+  color?: ColorRepresentation; 
   onInstanceCreation: CreateEntityCallback<T>;
-  behaviour?: Behaviour;
+  behaviour?: number;
   perObjectFrustumCulled?: boolean;
   // createEntities?: boolean;
 }
@@ -26,23 +20,21 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   public instances: T[];
   /** @internal */ public _perObjectFrustumCulled = true;
   /** @internal */ public _internalInstances: T[];
-  private _behaviour: Behaviour;
+  private _behaviour: number;
   private _bvh: InstancedMeshBVH;
   private _instancedAttributes: InstancedBufferAttribute[];
 
-  constructor(params: InstancedMesh2Params<G, M, T>) {
-    if (params === undefined) throw (new Error("params is mandatory"));
-    if (params.geometry === undefined) throw (new Error("geometry is mandatory"));
-    if (params.material === undefined) throw (new Error("material is mandatory"));
-    if (params.count === undefined) throw (new Error("count is mandatory"));
-    if (params.onInstanceCreation === undefined) throw (new Error("onInstanceCreation is mandatory"));
+  constructor(geometry: G, material: M, count: number, config: InstancedMesh2Params<T>) {
+    if (geometry === undefined) throw (new Error("geometry is mandatory"));
+    if (material === undefined) throw (new Error("material is mandatory"));
+    if (count === undefined) throw (new Error("count is mandatory"));
+    if (config?.onInstanceCreation === undefined) throw (new Error("onInstanceCreation is mandatory"));
 
-    super(params.geometry, params.material, params.count);
+    super(geometry, material, count);
 
-    const count = params.count;
-    const color = params.color !== undefined ? _color.set(params.color) : undefined;
-    const onInstanceCreation = params.onInstanceCreation;
-    this._behaviour = params.behaviour ?? Behaviour.static;
+    const color = config.color !== undefined ? _color.set(config.color) : undefined;
+    const onInstanceCreation = config.onInstanceCreation;
+    this._behaviour = config.behaviour ?? INSTANCEDMESH2_STATIC;
 
     this.instances = new Array(count);
     this._internalInstances = new Array(count);
@@ -67,7 +59,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
       this.updateInstancedAttributes();
       this.frustumCulled = false; // todo gestire a true solamente quando count è 0 e mettere bbox 
 
-      if (this._behaviour === Behaviour.static) {
+      if (this._behaviour === INSTANCEDMESH2_STATIC) {
         this._bvh = new InstancedMeshBVH(this).build();
       }
     }
@@ -213,7 +205,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     // console.time("culling");
 
-    if (this._behaviour === Behaviour.static) {
+    if (this._behaviour === INSTANCEDMESH2_STATIC) {
       this._bvh.updateCulling(camera, show, hide);
     } else {
       this.checkDynamicFrustum(camera, show, hide);
