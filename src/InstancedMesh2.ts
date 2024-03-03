@@ -2,27 +2,28 @@ import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, F
 import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
 import { InstancedEntity } from './InstancedEntity';
 
-export type CreateEntityCallback<T> = (obj: T, index: number) => void;
-export const INSTANCEDMESH2_STATIC = 0;
-export const INSTANCEDMESH2_DYNAMIC = 1;
+export type Entity<T> = InstancedEntity & T;
+export type CreateEntityCallback<T> = (obj: Entity<T>, index: number) => void;
+export const BehaviourStatic = 0;
+export const BehaviourDynamic = 1;
 
 export interface InstancedMesh2Params<T> {
-  color?: ColorRepresentation; 
-  onInstanceCreation: CreateEntityCallback<T>;
-  behaviour?: number;
+  onInstanceCreation: CreateEntityCallback<Entity<T>>;
   perObjectFrustumCulled?: boolean;
+  behaviour?: number;
+  color?: ColorRepresentation;
   // createEntities?: boolean;
 }
 
-export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
+export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public declare type: 'InstancedMesh2';
   public declare isInstancedMesh2: true;
-  public instances: T[];
+  public instances: Entity<T>[];
+  public sortedInstances: Entity<T>[];
   /** @internal */ public _perObjectFrustumCulled = true;
-  /** @internal */ public _internalInstances: T[];
   private _behaviour: number;
-  private _bvh: InstancedMeshBVH;
   private _instancedAttributes: InstancedBufferAttribute[];
+  private _bvh: InstancedMeshBVH;
 
   constructor(geometry: G, material: M, count: number, config: InstancedMesh2Params<T>) {
     if (geometry === undefined) throw (new Error("geometry is mandatory"));
@@ -34,20 +35,20 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     const color = config.color !== undefined ? _color.set(config.color) : undefined;
     const onInstanceCreation = config.onInstanceCreation;
-    this._behaviour = config.behaviour ?? INSTANCEDMESH2_STATIC;
+    this._behaviour = config.behaviour ?? BehaviourStatic;
 
     this.instances = new Array(count);
-    this._internalInstances = new Array(count);
+    this.sortedInstances = new Array(count);
 
     console.time("instancing...");
 
     for (let i = 0; i < count; i++) {
-      const instance = new InstancedEntity(this, i, color) as T;
+      const instance = new InstancedEntity(this, i, color) as Entity<T>;
 
       onInstanceCreation(instance, i);
       instance.forceUpdateMatrix();
 
-      this._internalInstances[i] = instance;
+      this.sortedInstances[i] = instance;
       this.instances[i] = instance;
     }
 
@@ -59,7 +60,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
       this.updateInstancedAttributes();
       this.frustumCulled = false; // todo gestire a true solamente quando count è 0 e mettere bbox 
 
-      if (this._behaviour === INSTANCEDMESH2_STATIC) {
+      if (this._behaviour === BehaviourStatic) {
         this._bvh = new InstancedMeshBVH(this).build();
       }
     }
@@ -87,7 +88,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
   }
 
   /** @internal */
-  public setInstanceVisibility(instance: T, value: boolean): void {
+  public setInstanceVisibility(instance: Entity<T>, value: boolean): void {
     if (value === (instance._visible && (!this._perObjectFrustumCulled || instance._inFrustum))) return;
     if (value === true) {
       this.swapInstance(instance, this.count);
@@ -99,7 +100,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     this.needsUpdate(); // serve?
   }
 
-  private setInstancesVisibility(show: T[], hide: T[]): void {
+  private setInstancesVisibility(show: Entity<T>[], hide: Entity<T>[]): void {
     const hideLengthMinus = hide.length - 1;
     const length = Math.min(show.length, hide.length);
 
@@ -115,7 +116,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     else this.hideInstances(hide, hide.length - length);
   }
 
-  private showInstances(entities: T[], count: number): void {
+  private showInstances(entities: Entity<T>[], count: number): void {
     let startIndex = count;
     let endIndex = entities.length - 1;
 
@@ -126,7 +127,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
   }
 
-  private hideInstances(entities: T[], count: number): void {
+  private hideInstances(entities: Entity<T>[], count: number): void {
     let startIndex = 0;
     let endIndex = count - 1;
 
@@ -137,8 +138,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     }
   }
 
-  private swapInstance(instanceFrom: T, idTo: number): void {
-    const instanceTo = this._internalInstances[idTo];
+  private swapInstance(instanceFrom: Entity<T>, idTo: number): void {
+    const instanceTo = this.sortedInstances[idTo];
     if (instanceFrom === instanceTo) return; //TODO ottimizzare per non farlo capitare?
     const idFrom = instanceFrom._internalId;
 
@@ -151,11 +152,11 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
 
-    this._internalInstances[idTo] = instanceFrom;
-    this._internalInstances[idFrom] = instanceTo;
+    this.sortedInstances[idTo] = instanceFrom;
+    this.sortedInstances[idFrom] = instanceTo;
   }
 
-  private swapInstance2(instanceFrom: T, instanceTo: T): void {
+  private swapInstance2(instanceFrom: Entity<T>, instanceTo: Entity<T>): void {
     // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
     const idFrom = instanceFrom._internalId;
     const idTo = instanceTo._internalId;
@@ -166,8 +167,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     instanceTo.matrixArray = instanceFrom.matrixArray;
     instanceFrom.matrixArray = temp;
 
-    this._internalInstances[idTo] = instanceFrom;
-    this._internalInstances[idFrom] = instanceTo;
+    this.sortedInstances[idTo] = instanceFrom;
+    this.sortedInstances[idFrom] = instanceTo;
 
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
@@ -200,12 +201,12 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
     if (this._perObjectFrustumCulled === false) return;
 
-    const show: T[] = []; // opt memory allocation
-    const hide: T[] = [];
+    const show: Entity<T>[] = []; // opt memory allocation
+    const hide: Entity<T>[] = [];
 
     // console.time("culling");
 
-    if (this._behaviour === INSTANCEDMESH2_STATIC) {
+    if (this._behaviour === BehaviourStatic) {
       this._bvh.updateCulling(camera, show, hide);
     } else {
       this.checkDynamicFrustum(camera, show, hide);
@@ -216,7 +217,7 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
     if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
   }
 
-  private checkDynamicFrustum(camera: Camera, show: T[], hide: T[]): void {
+  private checkDynamicFrustum(camera: Camera, show: Entity<T>[], hide: Entity<T>[]): void {
     _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     _frustum.setFromProjectionMatrix(_projScreenMatrix);
 

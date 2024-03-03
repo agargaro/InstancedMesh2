@@ -4,7 +4,7 @@ import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
-import { Behaviour, InstancedMesh2 } from './InstancedMesh2';
+import { BehaviourStatic, InstancedMesh2 } from './InstancedMesh2';
 
 const count = 1000000;
 const terrainSize = 300000;
@@ -18,16 +18,13 @@ const scene = new Scene();
 
 const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, 'tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
 
-const trees = new InstancedMesh2({
-  geometry: treeGLTF.geometry,
-  material: treeGLTF.material,
-  count,
-  behaviour: Behaviour.static,
+const trees = new InstancedMesh2(treeGLTF.geometry, treeGLTF.material, count, {
+  behaviour: BehaviourStatic,
   onInstanceCreation: (obj, index) => {
     obj.position.setX(Math.random() * terrainSize - terrainSize / 2).setZ(Math.random() * terrainSize - terrainSize / 2);
     obj.scale.setScalar(Math.random() * 0.1 + 0.1);
     obj.rotateY(Math.random() * Math.PI * 2).rotateZ(Math.random() * 0.3 - 0.15);
-  },
+  }
 });
 
 const terrain = new Mesh(new PlaneGeometry(terrainSize, terrainSize, 10, 10), new MeshLambertMaterial({ color: 0x004622 }));

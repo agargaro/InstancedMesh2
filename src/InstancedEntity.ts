@@ -19,7 +19,7 @@ export class InstancedEntity {
 
   public get visible(): boolean { return this._visible }
   public set visible(value: boolean) {
-    this.parent.setInstanceVisibility(this, value); // todo cahnge
+    this.parent.setInstanceVisibility(this, value);
     this._visible = value;
   }
 
@@ -54,7 +54,7 @@ export class InstancedEntity {
     this._matrixNeedsUpdate = false;
   }
 
-  /** @internal @LASTREV 161 Matrix4.ts */
+  /** @internal @LASTREV 162 Matrix4.ts */
   protected composeToArray(): void {
     const te = this.matrixArray;
     const position = this.position;
