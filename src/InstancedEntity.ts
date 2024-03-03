@@ -41,8 +41,8 @@ export class InstancedEntity {
     this.quaternion = new Quaternion();
   }
 
-  public updateMatrix(): void { // migliorabile
-    if (this.parent._perObjectFrustumCulled === true) { // TODO gestire anche se non visibile this._visible === false
+  public updateMatrix(): void { //TODO this can be improved checking also visibility === false
+    if (this.parent._perObjectFrustumCulled === true) {
       this._matrixNeedsUpdate = true;
     } else {
       this.forceUpdateMatrix();

@@ -1,6 +1,6 @@
 import { Box3, Camera, Matrix4 } from 'three';
-import { InstancedEntity } from '../InstancedEntity';
-import { InstancedMesh2 } from '../InstancedMesh2';
+import { InstancedEntity } from './InstancedEntity';
+import { InstancedMesh2 } from './InstancedMesh2';
 import { Frustum, VisibilityState } from './Frustum';
 
 export interface Node {
@@ -46,8 +46,8 @@ export class InstancedMeshBVH {
     this.buildNode(this.root, 0, this._target.instances.length, 0);
     console.timeEnd("bvh...");
 
-    // delete this._bboxData;
-    // delete this._indexes;
+    delete this._bboxData;
+    delete this._indexes;
 
     return this;
   }

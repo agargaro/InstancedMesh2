@@ -1,5 +1,5 @@
 import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
-import { InstancedMeshBVH } from './BVH/InstancedMeshBVH';
+import { InstancedMeshBVH } from './InstancedMeshBVH';
 import { InstancedEntity } from './InstancedEntity';
 
 export type Entity<T> = InstancedEntity & T;

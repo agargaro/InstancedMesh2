@@ -1,6 +1,6 @@
 import { Main, OrthographicCameraAuto } from '@three.ez/main';
 import { BoxGeometry, MeshBasicMaterial, Scene, Vector3 } from 'three';
-import { BehaviourStatic, InstancedMesh2 } from './InstancedMesh2';
+import { BehaviourStatic, InstancedMesh2 } from '../src/InstancedMesh2';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const main = new Main({ rendererParameters: { antialias: true } });

@@ -4,7 +4,7 @@ import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
-import { BehaviourStatic, InstancedMesh2 } from './InstancedMesh2';
+import { BehaviourStatic, InstancedMesh2 } from '../src/InstancedMesh2';
 
 const count = 1000000;
 const terrainSize = 300000;

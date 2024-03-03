@@ -17,3 +17,4 @@ TODO:
 -instancedEntity creation flag
 -handle update function (if change visibility)
 -set custom mode if only rotate, translate, scale
+-improve matrices update
