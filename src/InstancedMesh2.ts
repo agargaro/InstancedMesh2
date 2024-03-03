@@ -75,12 +75,17 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   private updateInstancedAttributes(): void {
     const instancedAttributes = [this.instanceMatrix];
-    if (this.instanceColor) instancedAttributes.push(this.instanceColor);
+    this.instanceMatrix.setUsage(DynamicDrawUsage);
+
+    if (this.instanceColor) {
+      instancedAttributes.push(this.instanceColor);
+      this.instanceColor.setUsage(DynamicDrawUsage);
+    }
 
     const attributes = this.geometry.attributes;
     for (const key in attributes) {
       const attr = attributes[key] as InstancedBufferAttribute;
-      if ((attr as any).isInstancedBufferAttribute) { // TODO FIX d.ts and remove any
+      if (attr.isInstancedBufferAttribute) {
         attr.setUsage(DynamicDrawUsage);
         instancedAttributes.push(attr);
       }
@@ -256,7 +261,8 @@ export class InstancedMesh2<T extends InstancedEntity = InstancedEntity, G exten
 
   private needsUpdate(): void {
     for (const attr of this._instancedAttributes) {
-      attr.needsUpdate = true; // capire
+      // attr.clearUpdateRanges();
+      attr.needsUpdate = true;
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
   }
