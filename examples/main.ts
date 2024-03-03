@@ -6,8 +6,8 @@ import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { BehaviourStatic, InstancedMesh2 } from '../src/InstancedMesh2';
 
-const count = 1000000;
-const terrainSize = 300000;
+const count = 100000;
+const terrainSize = 30000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 main.renderer.toneMapping = ACESFilmicToneMapping;
@@ -16,7 +16,7 @@ main.renderer.toneMappingExposure = 0.5;
 const camera = new PerspectiveCameraAuto(70, 0.1, 4000).translateY(300).translateZ(-900);
 const scene = new Scene();
 
-const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, 'tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
+const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, '../tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
 
 const trees = new InstancedMesh2(treeGLTF.geometry, treeGLTF.material, count, {
   behaviour: BehaviourStatic,

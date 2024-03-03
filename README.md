@@ -3,18 +3,14 @@
 Work in progress...
 This work when finished will be moved to the three.ez repo.
 
-TODO:
+Future work:
 
--handle count
--update range visibility opt
+-optimize range visibility if set visible = false
 -improve culling
 -bvh sah and average
--double buffering?
 -load bvh
 -serialize
 -interesction opt if culled culling
--loading handling 
--instancedEntity creation flag
--handle update function (if change visibility)
+-onProgress callbacks 
 -set custom mode if only rotate, translate, scale
 -improve matrices update

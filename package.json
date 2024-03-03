@@ -39,5 +39,8 @@
   },
   "peerDependencies": {
     "three": ">=0.151.0"
+  },
+  "dependencies": {
+    "@three.ez/main": "^0.4.12"
   }
 }

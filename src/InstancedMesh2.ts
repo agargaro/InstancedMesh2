@@ -91,10 +91,10 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
   public setInstanceVisibility(instance: Entity<T>, value: boolean): void {
     if (value === (instance._visible && (!this._perObjectFrustumCulled || instance._inFrustum))) return; // capire
     if (value === true) {
-      this.swapInstance(instance, this.count);
+      this.swapInstances(instance, this.count);
       this.count++;
     } else {
-      this.swapInstance(instance, this.count - 1);
+      this.swapInstances(instance, this.count - 1);
       this.count--;
     }
     this.needsUpdate(); // serve?
@@ -105,15 +105,13 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     const length = Math.min(show.length, hide.length);
 
     for (let i = 0; i < length; i++) {
-      this.swapInstance2(show[i], hide[hideLengthMinus - i]);
+      this.swapDifferentInstances(show[i], hide[hideLengthMinus - i]);
     }
 
-    this.needsUpdate(); // TODO usare anche altrove
-
-    if (show.length === hide.length) return;
-
     if (show.length > hide.length) this.showInstances(show, length);
-    else this.hideInstances(hide, hide.length - length);
+    else if (show.length < hide.length) this.hideInstances(hide, hide.length - length);
+
+    this.needsUpdate(); // TODO usare anche altrove
   }
 
   private showInstances(entities: Entity<T>[], count: number): void {
@@ -121,7 +119,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     let endIndex = entities.length - 1;
 
     while (endIndex >= startIndex) {
-      this.swapInstance(entities[endIndex], this.count);
+      this.swapInstances(entities[endIndex], this.count);
       endIndex--;
       this.count++;
     }
@@ -132,15 +130,15 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     let endIndex = count - 1;
 
     while (endIndex >= startIndex) {
-      this.swapInstance(entities[startIndex], this.count - 1);
+      this.swapInstances(entities[startIndex], this.count - 1);
       startIndex++;
       this.count--;
     }
   }
 
-  private swapInstance(instanceFrom: Entity<T>, idTo: number): void {
+  private swapInstances(instanceFrom: Entity<T>, idTo: number): void {
     const instanceTo = this.sortedInstances[idTo];
-    if (instanceFrom === instanceTo) return; //TODO ottimizzare per non farlo capitare?
+    if (instanceFrom === instanceTo) return;
     const idFrom = instanceFrom._internalId;
 
     this.swapAttributes(idFrom, idTo);
@@ -156,7 +154,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     this.sortedInstances[idFrom] = instanceTo;
   }
 
-  private swapInstance2(instanceFrom: Entity<T>, instanceTo: Entity<T>): void {
+  private swapDifferentInstances(instanceFrom: Entity<T>, instanceTo: Entity<T>): void {
     // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
     const idFrom = instanceFrom._internalId;
     const idTo = instanceTo._internalId;
@@ -197,7 +195,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
   }
 
   public updateCulling(camera: Camera): void {
-    //put it on beforeRenderer
+    //put it on beforeRenderer is not possibile
 
     if (this._perObjectFrustumCulled === false) return;
 
