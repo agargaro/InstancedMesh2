@@ -1,12 +1,13 @@
 import { Matrix4, Plane, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
 
+/** @internal */
 export enum VisibilityState {
   in,
   intersect,
   out
 }
 
-/** @LASTREV 162 Frustum */
+/** @internal @LASTREV 162 Frustum */
 export class Frustum {
   public planes: Plane[];
 

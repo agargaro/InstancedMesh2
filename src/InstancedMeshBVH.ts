@@ -3,6 +3,7 @@ import { InstancedEntity } from './InstancedEntity';
 import { InstancedMesh2 } from './InstancedMesh2';
 import { Frustum, VisibilityState } from './Frustum';
 
+/** @internal */
 export interface Node {
   bbox: Float32Array;
   visibility: VisibilityState;
@@ -11,12 +12,14 @@ export interface Node {
   leaves?: InstancedEntity[];
 }
 
+/** @internal */
 export enum SplitType {
   center,
   average,
   SAH,
 }
 
+/** @internal */
 export class InstancedMeshBVH {
   public root: Node;
   protected _target: InstancedMesh2;
