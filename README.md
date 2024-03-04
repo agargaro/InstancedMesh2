@@ -24,16 +24,6 @@ const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
 
 This library has only one dependency: `three.js r151+`.
 
-## ✅ Why three.ez?
-
-- Program the logic of your Object3D more quickly and intuitively
-- Less code and cleaner
-- Streamlined rendering
-- Declarative and imperative programming
-- Compatible with your three.js code and external libraries
-- Easy to learn
-- High performance
-
 ## 🔑 Key Features
 
 ### ✨ [Event Programming](https://stackblitz.com/edit/three-ez-events?file=src%2Fmain.ts)
@@ -116,8 +106,6 @@ These examples use `vite`, and some mobile devices may run out of memory.
 [Examples Collection](https://stackblitz.com/@agargaro/collections/three-ez)
 
 - [Template](https://stackblitz.com/edit/three-ez-template?file=src%2Fmain.ts)
-— [Template Extended](https://stackblitz.com/edit/three-ez-template-extended?file=src%2Fmain.ts)
-— [Template No Vite](https://stackblitz.com/edit/three-ez-template-no-vite?file=index.ts)
 
 ## 📚 Documentation
 
@@ -131,3 +119,7 @@ Any help is highly appreciated. If you would like to contribute to this package 
 ## ❔ Questions?
 
 If you have questions or need assistance, you can ask on our [discord server](https://discord.gg/MVTwrdX3JM).
+
+## ⭐ Like it?
+
+If you find this project helpful, I would greatly appreciate it if you could leave a star on GitHub! This helps me know that you appreciate my work and encourages me to continue improving it. Thank you so much for your support! 🌟
