@@ -4,10 +4,10 @@ import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
-import { BehaviourStatic, InstancedMesh2 } from '../src/InstancedMesh2';
+import { CullingStatic, InstancedMesh2 } from '../src/InstancedMesh2';
 
-const count = 100000;
-const terrainSize = 30000;
+const count = 1000000;
+const terrainSize = 200000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 main.renderer.toneMapping = ACESFilmicToneMapping;
@@ -19,7 +19,7 @@ const scene = new Scene();
 const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, '../tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
 
 const trees = new InstancedMesh2(treeGLTF.geometry, treeGLTF.material, count, {
-  behaviour: BehaviourStatic,
+  behaviour: CullingStatic,
   onInstanceCreation: (obj, index) => {
     obj.position.setX(Math.random() * terrainSize - terrainSize / 2).setZ(Math.random() * terrainSize - terrainSize / 2);
     obj.scale.setScalar(Math.random() * 0.1 + 0.1);

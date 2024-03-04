@@ -1,26 +1,27 @@
-import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Material, Matrix4, Sphere, Vector3 } from 'three';
-import { InstancedMeshBVH } from './InstancedMeshBVH';
+import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Intersection, Material, Matrix4, Mesh, Raycaster, Sphere, Vector3 } from 'three';
 import { InstancedEntity } from './InstancedEntity';
+import { InstancedMeshBVH } from './InstancedMeshBVH';
 
 export type Entity<T> = InstancedEntity & T;
 export type CreateEntityCallback<T> = (obj: Entity<T>, index: number) => void;
-export const BehaviourStatic = 0;
-export const BehaviourDynamic = 1;
+
+export const CullingNone = 0;
+export const CullingStatic = 1;
+export const CullingDynamic = 2;
 
 export interface InstancedMesh2Params<T> {
   onInstanceCreation: CreateEntityCallback<Entity<T>>;
-  perObjectFrustumCulled?: boolean;
   behaviour?: number;
   color?: ColorRepresentation;
   // createEntities?: boolean;
 }
 
 export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
-  public declare type: 'InstancedMesh2';
-  public declare isInstancedMesh2: true;
+  public override type = 'InstancedMesh2';
+  public isInstancedMesh2 = true;
   public instances: Entity<T>[];
-  public sortedInstances: Entity<T>[];
-  /** @internal */ public _perObjectFrustumCulled = true;
+  private _sortedInstances: Entity<T>[];
+  /** @internal */ public readonly _perObjectFrustumCulled: boolean;
   private _behaviour: number;
   private _instancedAttributes: InstancedBufferAttribute[];
   private _bvh: InstancedMeshBVH;
@@ -35,10 +36,13 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     const color = config.color !== undefined ? _color.set(config.color) : undefined;
     const onInstanceCreation = config.onInstanceCreation;
-    this._behaviour = config.behaviour ?? BehaviourStatic;
+    this._behaviour = config.behaviour ?? CullingStatic;
+    this._perObjectFrustumCulled = this._behaviour !== CullingNone;
 
     this.instances = new Array(count);
-    this.sortedInstances = new Array(count);
+    this._sortedInstances = new Array(count);
+
+    this.updateInstancedAttributes();
 
     console.time("instancing...");
 
@@ -48,20 +52,19 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
       onInstanceCreation(instance, i);
       instance.forceUpdateMatrix();
 
-      this.sortedInstances[i] = instance;
+      this._sortedInstances[i] = instance;
       this.instances[i] = instance;
     }
 
     console.timeEnd("instancing...");
 
-    // TODO fare update in base alle visibilità se onCreateEntity
-
     if (this._perObjectFrustumCulled) {
-      this.updateInstancedAttributes();
       this.frustumCulled = false; // todo gestire a true solamente quando count è 0 e mettere bbox 
 
-      if (this._behaviour === BehaviourStatic) {
+      if (this._behaviour === CullingStatic) {
         this._bvh = new InstancedMeshBVH(this).build();
+      } else if (!this.geometry.boundingSphere) {
+        this.geometry.computeBoundingSphere();
       }
     }
   }
@@ -89,15 +92,18 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
   /** @internal */
   public setInstanceVisibility(instance: Entity<T>, value: boolean): void {
-    if (value === (instance._visible && (!this._perObjectFrustumCulled || instance._inFrustum))) return; // capire
-    if (value === true) {
+    // could be only !instance._inFrustum but can be slower due to memory location?
+    if (this._perObjectFrustumCulled && !instance._inFrustum) return;
+
+    if (value) {
       this.swapInstances(instance, this.count);
       this.count++;
     } else {
       this.swapInstances(instance, this.count - 1);
       this.count--;
     }
-    this.needsUpdate(); // serve?
+
+    this.needsUpdate();
   }
 
   private setInstancesVisibility(show: Entity<T>[], hide: Entity<T>[]): void {
@@ -111,7 +117,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     if (show.length > hide.length) this.showInstances(show, length);
     else if (show.length < hide.length) this.hideInstances(hide, hide.length - length);
 
-    this.needsUpdate(); // TODO usare anche altrove
+    this.needsUpdate();
   }
 
   private showInstances(entities: Entity<T>[], count: number): void {
@@ -137,7 +143,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
   }
 
   private swapInstances(instanceFrom: Entity<T>, idTo: number): void {
-    const instanceTo = this.sortedInstances[idTo];
+    const instanceTo = this._sortedInstances[idTo];
     if (instanceFrom === instanceTo) return;
     const idFrom = instanceFrom._internalId;
 
@@ -150,12 +156,11 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
 
-    this.sortedInstances[idTo] = instanceFrom;
-    this.sortedInstances[idFrom] = instanceTo;
+    this._sortedInstances[idTo] = instanceFrom;
+    this._sortedInstances[idFrom] = instanceTo;
   }
 
   private swapDifferentInstances(instanceFrom: Entity<T>, instanceTo: Entity<T>): void {
-    // if (instanceFrom === instanceTo) return this // this is always false in the only scenario when it's used
     const idFrom = instanceFrom._internalId;
     const idTo = instanceTo._internalId;
 
@@ -164,12 +169,13 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     const temp = instanceTo.matrixArray;
     instanceTo.matrixArray = instanceFrom.matrixArray;
     instanceFrom.matrixArray = temp;
-
-    this.sortedInstances[idTo] = instanceFrom;
-    this.sortedInstances[idFrom] = instanceTo;
-
+    
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
+    
+    this._sortedInstances[idTo] = instanceFrom;
+    this._sortedInstances[idFrom] = instanceTo;
+
   }
 
   private swapAttributes(idFrom: number, idTo: number): void {
@@ -187,6 +193,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     const temp = array[fromOffset];
     array[fromOffset] = array[toOffset];
     array[toOffset] = temp;
+
     for (let i = 1; i < size; i++) {
       const temp = array[fromOffset + i];
       array[fromOffset + i] = array[toOffset + i];
@@ -199,20 +206,20 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     if (this._perObjectFrustumCulled === false) return;
 
-    const show: Entity<T>[] = []; // opt memory allocation
-    const hide: Entity<T>[] = [];
+    _show.length = 0;
+    _hide.length = 0;
 
     // console.time("culling");
 
-    if (this._behaviour === BehaviourStatic) {
-      this._bvh.updateCulling(camera, show, hide);
+    if (this._behaviour === CullingStatic) {
+      this._bvh.updateCulling(camera, _show, _hide);
     } else {
-      this.checkDynamicFrustum(camera, show, hide);
+      this.checkDynamicFrustum(camera, _show, _hide);
     }
 
     // console.timeEnd("culling");
 
-    if (show.length > 0 || hide.length > 0) this.setInstancesVisibility(show, hide);
+    if (_show.length > 0 || _hide.length > 0) this.setInstancesVisibility(_show, _hide);
   }
 
   private checkDynamicFrustum(camera: Camera, show: Entity<T>[], hide: Entity<T>[]): void {
@@ -226,11 +233,10 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     for (let i = 0, l = this.instances.length; i < l; i++) {
       const instance = instances[i];
-      if (instance._visible === false) continue;
+      if (!instance._visible) continue;
 
-      // _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
-
-      _sphere.center.addVectors(center, instance.position); // this works if geometry bsphere center is 0,0,0
+      // _sphere.center.copy(instance.position); // this works if geometry bsphere center is 0,0,0
+      _sphere.center.copy(center).applyQuaternion(instance.quaternion).add(instance.position);
       _sphere.radius = radius * this.getMax(instance.scale);
 
       if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
@@ -257,14 +263,51 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
       attr.addUpdateRange(0, this.count * attr.itemSize);
     }
   }
-}
 
-InstancedMesh2.prototype.isInstancedMesh2 = true;
-InstancedMesh2.prototype.type = 'InstancedMesh2';
+  public override raycast(raycaster: Raycaster, intersects: Intersection[]): void {
+    // this can be opt a lot, use frustum if dynamic to check if ray is in there
+    if (this.material === undefined) return;
+
+    if (this.boundingSphere === null) this.computeBoundingSphere();
+
+    const matrixWorld = this.matrixWorld;
+    _sphere.copy(this.boundingSphere);
+    _sphere.applyMatrix4(matrixWorld);
+
+    if (!raycaster.ray.intersectsSphere(_sphere)) return;
+
+    _mesh.geometry = this.geometry;
+    _mesh.material = this.material;
+    const instances = this.instances;
+
+    for (let i = 0, l = instances.length; i < l; i++) {
+      if (!instances[i]._visible) continue;
+
+      _instanceWorldMatrix.multiplyMatrices(matrixWorld, instances[i].matrix);
+      _mesh.matrixWorld = _instanceWorldMatrix;
+
+      _mesh.raycast(raycaster, _instanceIntersects);
+
+      for (let j = 0, l = _instanceIntersects.length; j < l; j++) {
+        const intersect = _instanceIntersects[j];
+        intersect.instanceId = i;
+        intersect.object = this;
+        intersects.push(intersect);
+      }
+
+      _instanceIntersects.length = 0;
+    }
+  }
+}
 
 const _color = new Color();
 const _frustum = new Frustum();
 const _projScreenMatrix = new Matrix4();
+const _instanceWorldMatrix = new Matrix4();
 const _sphere = new Sphere();
+const _mesh = new Mesh();
+const _instanceIntersects: Intersection[] = [];
+const _show: Entity<any>[] = [];
+const _hide: Entity<any>[] = [];
 
 // TODO not swap matrix if needsUpdate = true ?

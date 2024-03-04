@@ -253,10 +253,16 @@ export class InstancedMeshBVH {
     if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
 
       if (node.leaves) {
-        if (node.visibility === VisibilityState.out) {
-          this._show.push(...node.leaves); // TODO use push for better performance?
+        if (node.visibility === VisibilityState.out) { //todo remove this enum
+          const leaves = node.leaves;
+          for (let i = 0, l = leaves.length; i < l; i++) {
+            if (leaves[i]._visible) this._show.push(leaves[i]); 
+          }
         } else if (visibility === VisibilityState.out) {
-          this._hide.push(...node.leaves); // TODO use push for better performance?
+          const leaves = node.leaves;
+          for (let i = 0, l = leaves.length; i < l; i++) {
+            if (leaves[i]._visible) this._hide.push(leaves[i]); 
+          }
         }
       } else {
         const force = visibility === VisibilityState.intersect ? undefined : visibility;

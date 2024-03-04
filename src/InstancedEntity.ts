@@ -2,8 +2,8 @@ import { Color, ColorRepresentation, Matrix4, Quaternion, Vector3 } from 'three'
 import { InstancedMesh2 } from './InstancedMesh2';
 
 export class InstancedEntity {
-  public type: 'InstancedEntity';
-  public isInstanceEntity: true;
+  public type = 'InstancedEntity';
+  public isInstanceEntity = true;
   public matrixArray: Float32Array;
   public readonly parent: InstancedMesh2;
   public readonly id: number;
@@ -11,16 +11,18 @@ export class InstancedEntity {
   public readonly scale: Vector3;
   public readonly quaternion: Quaternion;
   /** @internal */ public _internalId: number;
-  /** @internal */ public _visible: boolean;
-  /** @internal */ public _inFrustum: boolean;
-  /** @internal */ public _matrixNeedsUpdate: boolean;
+  /** @internal */ public _visible = true;
+  /** @internal */ public _inFrustum = true;
+  /** @internal */ public _matrixNeedsUpdate = false;
 
   public get internalId(): number { return this._internalId }
 
   public get visible(): boolean { return this._visible }
   public set visible(value: boolean) {
-    this.parent.setInstanceVisibility(this, value);
-    this._visible = value;
+    if (value !== this._visible) {
+      this.parent.setInstanceVisibility(this, value);
+      this._visible = value;
+    }
   }
 
   public get matrix(): Matrix4 {
@@ -148,12 +150,6 @@ export class InstancedEntity {
 
   // add other Object3D methods
 }
-
-InstancedEntity.prototype.isInstanceEntity = true;
-InstancedEntity.prototype.type = 'InstancedEntity';
-InstancedEntity.prototype._visible = true;
-InstancedEntity.prototype._inFrustum = true;
-InstancedEntity.prototype._matrixNeedsUpdate = false;
 
 const _q = new Quaternion();
 const _m = new Matrix4();
