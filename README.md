@@ -7,22 +7,19 @@
 [![BundlePhobia](https://badgen.net/bundlephobia/min/@three.ez/instanced-mesh)](https://bundlephobia.com/package/@three.ez/instanced-mesh)
 [![Discord](https://img.shields.io/discord/1150091562227859457)](https://discord.gg/MVTwrdX3JM)
 
-Simplify your **three.js** application development with **three.ez**! 
-
-Extend the functionalities of `Object3D` and `Scene` classes, making their usage more straightforward, and introduce utility classes.
+`InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance **transformations and visibility**, while also integrating **frustum culling** for enhanced performance.
 
 ```typescript
-import { Scene, Mesh, BoxGeometry, MeshNormalMaterial } from 'three';
-import { Main, PerspectiveCameraAuto } from '@three.ez/main';
+import { CullingStatic, InstancedMesh2 } from '@three.ez/instanced-mesh';
 
-const box = new Mesh(new BoxGeometry(), new MeshNormalMaterial());
-box.draggable = true; // make it draggable
-box.on('animate', (e) => box.rotateX(e.delta).rotateY(e.delta * 2)); // animate it every frame
-box.on(['pointerover', 'pointerout'], (e) => box.scale.setScalar(e.type === 'pointerover' ? 1.5 : 1));
-
-const scene = new Scene().add(box);
-const main = new Main(); // init inside the renderer, and handle events, resize, etc
-main.createView({ scene, camera: new PerspectiveCameraAuto(70).translateZ(1) }); // create the view to be rendered
+const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
+  behaviour: CullingStatic,
+  onInstanceCreation: (obj, index) => {
+    obj.position.random();
+    obj.scale.setScalar(2);
+    obj.quaternion.random();
+  }
+});
 ```
 
 This library has only one dependency: `three.js r151+`.
@@ -114,7 +111,7 @@ Or can import it from CDN:
 
 ## 🧑‍💻 Live Examples
 
-These examples use `vite`, and some mobile devices may run out of memory. However, there is one example without it.
+These examples use `vite`, and some mobile devices may run out of memory.
 
 [Examples Collection](https://stackblitz.com/@agargaro/collections/three-ez)
 
