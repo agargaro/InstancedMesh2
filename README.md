@@ -7,7 +7,7 @@
 [![BundlePhobia](https://badgen.net/bundlephobia/min/@three.ez/instanced-mesh)](https://bundlephobia.com/package/@three.ez/instanced-mesh)
 [![Discord](https://img.shields.io/discord/1150091562227859457)](https://discord.gg/MVTwrdX3JM)
 
-`InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance **transformations and visibility**, while also integrating **frustum culling** for enhanced performance.
+`InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance `transformations` and `visibility`, while also integrating `frustum culling` for enhanced performance.
 
 ```typescript
 import { CullingDynamic, InstancedMesh2 } from '@three.ez/instanced-mesh';
@@ -32,8 +32,8 @@ This library has only one dependency: `three.js r151+`.
 ## 🔑 Key Features 
 
 ### 🛠️ Meshes Instances
-Each mesh will have its own instance which can be accessed with the property `instances`. <br /> 
-**It will be possible to change the visibility, apply transformations and add customised data for each mesh.**
+Each mesh has its own instance accessible through the `instances` property. <br />
+You can easily modify visibility, apply transformations, and add custom data to each mesh instance.
 
 ```typescript
 myInstancedMesh.instances[0].visible = false;
@@ -47,21 +47,19 @@ myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
 ```     
 
 ### 🎥 Frustum Culling
-It is possible to avoid rendering meshes outside the chamber frustum, to optimise performance.
-
-There are three behaviours:
-- ***CullingNone***: frustum culling will not be calculated, ideal if all instances are always visible in the frustum of the camera.
-- ***CullingStatic***: frustum culling will be calculated super fast by creating a BVH but only works if all objects are no longer updated.
-- ***CullingDynamic***: frustum culling will be calculated individually on each instance, necessary for animated meshes.
+InstancedMesh2 offers three different behaviors for frustum culling:
+- **CullingNone**: Frustum culling is disabled, suitable if all instances are always visible in the camera's frustum.
+- **CullingStatic**: Fast frustum culling using a BVH, ideal for static objects.
+- **CullingDynamic**: Individual frustum culling for each instance, necessary for animated meshes.
 
 ```typescript
 const myInstancedMesh = new InstancedMesh2(geometry, material, count, {
-  behaviour: CullingStatic, // specify behaviour here 
+  behaviour: CullingStatic, // specify behavior here 
   onInstanceCreation
 });
 ``` 
 
-If you use **CullingStatic** or **CullingDynamic**, it's necessary to use `updateCulling` function before rendering.
+If you use **CullingStatic** or **CullingDynamic**, remember to call `updateCulling` function before rendering.
 
 ```typescript
 camera.updateMatrixWorld(true);
@@ -76,7 +74,7 @@ You can install it via npm using the following command:
 npm install @three.ez/instanced-mesh
 ```
 
-Or can import it from CDN:
+Or you can import it from CDN:
 
 ```html
 <script type="importmap">
@@ -111,7 +109,7 @@ If you have questions or need assistance, you can ask on our [discord server](ht
 
 ## 👀 Future Work
 
-Improve raycast function if **CullingStatic** and other optimisations.
+Improve raycast function if **CullingStatic** and other optimizations.
 
 ## ⭐ Like it?
 
