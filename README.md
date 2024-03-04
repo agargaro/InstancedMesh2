@@ -24,38 +24,27 @@ const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
 myInstancedMesh.instances[0].visible = false;
 
 myInstancedMesh.instances[1].rotateX(Math.PI);
-myInstancedMesh.instances[1].updateMatrix();
+myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
 ```
 
 This library has only one dependency: `three.js r151+`.
 
-## 🔑 Key Features
+## 🔑 Key Features 
 
-### ✨ [Event Programming](https://stackblitz.com/edit/three-ez-events?file=src%2Fmain.ts)
-Add interactions to `Object3D` through programmable events, similar to `DOM events`, including a propagation system. <br />
-See events list here: [Interaction](https://agargaro.github.io/three.ez/docs/tutorial/events/interaction), [Miscellaneous](https://agargaro.github.io/three.ez/docs/tutorial/events/misc), [Update](https://agargaro.github.io/three.ez/docs/tutorial/events/update).
-
-```typescript
-const box = new Mesh(geometry, material);
-box.on('click', (e) => e.stopPropagation());
-box.on('animate', (e) => console.log('animate'));
-box.on('positionchange', () => console.log('position changed'));
-```     
-
-### 🔥 Drag and Drop
-Integrate drag and drop functionality. The drag is cancelled by pressing *ESC*.
+### 🛠️ Instances Objects
+Each mesh will have its own instance which can be accessed with the property `instances`. <br /> 
+**It will be possible to change the visibility, apply transformations and add customised data for each mesh.**
 
 ```typescript
-const box = new Mesh(geometry, material);
-box.draggable = true;
-box.findDropTarget = true;
-box.on('drag', (e) => console.log(`new position: ${e.position}`));
+myInstancedMesh.instances[0].visible = false;
 
-const plane = new Mesh(geometry, material);
-plane.on('drop', (e) => console.log(`obj dropped on this: ${e.relatedTarget}`));
+myInstancedMesh.instances[0].customData = {};
+
+myInstancedMesh.instances[1].position.y += 1;
+myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
 ```     
 
-### 🚀 Focus and Blur
+### 🎥 Frustum Culling
 Enhance interactivity with focus and blur events.   
 
 ```typescript
@@ -91,7 +80,7 @@ Or can import it from CDN:
 
 These examples use `vite`, and some mobile devices may run out of memory.
 
-- [Forest with 1kk trees]([https://stackblitz.com/edit/three-ez-template?file=src%2Fmain.ts](https://stackblitz.com/edit/three-ez-instancedmesh2-forest-1kk-trees?file=src%2Fmain.ts))
+- [Forest with 1kk trees](https://stackblitz.com/edit/three-ez-instancedmesh2-forest-1kk-trees?file=src%2Fmain.ts)
 
 ## 📚 Documentation
 
