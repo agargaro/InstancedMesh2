@@ -10,16 +10,21 @@
 `InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance **transformations and visibility**, while also integrating **frustum culling** for enhanced performance.
 
 ```typescript
-import { CullingStatic, InstancedMesh2 } from '@three.ez/instanced-mesh';
+import { CullingDynamic, InstancedMesh2 } from '@three.ez/instanced-mesh';
 
 const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
-  behaviour: CullingStatic,
+  behaviour: CullingDynamic,
   onInstanceCreation: (obj, index) => {
     obj.position.random();
     obj.scale.setScalar(2);
     obj.quaternion.random();
   }
 });
+
+myInstancedMesh.instances[0].visible = false;
+
+myInstancedMesh.instances[1].rotateX(Math.PI);
+myInstancedMesh.instances[1].updateMatrix();
 ```
 
 This library has only one dependency: `three.js r151+`.
@@ -58,24 +63,7 @@ const box = new Mesh(geometry, material);
 box.focusable = true; // default is true
 box.on('focus', (e) => console.log('focused'));
 box.on('blur', (e) => console.log('focus lost'));
-```     
-
-### 🏅 [Object3D Property Binding](https://agargaro.github.io/three.ez/docs/tutorial/binding)
-Streamline the management of `Object3D` properties.
-
-```typescript
-const box = new Mesh(geometry, material);
-box.bindProperty('visible', () => box.parent?.enabled); 
-```
-
-### ✂️ Automatic Resize Handling
-Automatically resizes the `Renderer`, `Camera`, and `EffectComposer`. <br />
-Utilize the `viewportResize` event to easily set the resolution for custom shaders.
-
-```typescript
-const line = new Line2(geometry, material);
-line.on('viewportresize', (e) => material.resolution.set(e.width, e.height));
-```
+``` 
 
 ## ⬇️ Installation
 
@@ -103,9 +91,7 @@ Or can import it from CDN:
 
 These examples use `vite`, and some mobile devices may run out of memory.
 
-[Examples Collection](https://stackblitz.com/@agargaro/collections/three-ez)
-
-- [Template](https://stackblitz.com/edit/three-ez-template?file=src%2Fmain.ts)
+- [Forest with 1kk trees]([https://stackblitz.com/edit/three-ez-template?file=src%2Fmain.ts](https://stackblitz.com/edit/three-ez-instancedmesh2-forest-1kk-trees?file=src%2Fmain.ts))
 
 ## 📚 Documentation
 
@@ -122,4 +108,6 @@ If you have questions or need assistance, you can ask on our [discord server](ht
 
 ## ⭐ Like it?
 
-If you find this project helpful, I would greatly appreciate it if you could leave a star on GitHub! This helps me know that you appreciate my work and encourages me to continue improving it. Thank you so much for your support! 🌟
+If you find this project helpful, I would greatly appreciate it if you could leave a star on this repository! <br />
+This helps me know that you appreciate my work and encourages me to continue improving it. <br />
+Thank you so much for your support! 🌟
