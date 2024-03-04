@@ -31,7 +31,7 @@ This library has only one dependency: `three.js r151+`.
 
 ## 🔑 Key Features 
 
-### 🛠️ Instances Objects
+### 🛠️ Meshes Instances
 Each mesh will have its own instance which can be accessed with the property `instances`. <br /> 
 **It will be possible to change the visibility, apply transformations and add customised data for each mesh.**
 
@@ -40,18 +40,32 @@ myInstancedMesh.instances[0].visible = false;
 
 myInstancedMesh.instances[0].customData = {};
 
-myInstancedMesh.instances[1].position.y += 1;
+myInstancedMesh.instances[1].position.random();
+myInstancedMesh.instances[1].quaternion.random();
+myInstancedMesh.instances[1].scale.random();
 myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
 ```     
 
 ### 🎥 Frustum Culling
-Enhance interactivity with focus and blur events.   
+It is possible to avoid rendering meshes outside the chamber frustum, to optimise performance.
+
+There are three behaviours:
+- ***CullingNone***: frustum culling will not be calculated, ideal if all instances are always visible in the frustum of the camera.
+- ***CullingStatic***: frustum culling will be calculated super fast by creating a BVH but only works if all objects are no longer updated.
+- ***CullingDynamic***: frustum culling will be calculated individually on each instance, necessary for animated meshes.
 
 ```typescript
-const box = new Mesh(geometry, material);
-box.focusable = true; // default is true
-box.on('focus', (e) => console.log('focused'));
-box.on('blur', (e) => console.log('focus lost'));
+const myInstancedMesh = new InstancedMesh2(geometry, material, count, {
+  behaviour: CullingStatic, // specify behaviour here 
+  onInstanceCreation
+});
+``` 
+
+If you use **CullingStatic** or **CullingDynamic**, it's necessary to use `updateCulling` function before rendering.
+
+```typescript
+camera.updateMatrixWorld(true);
+myInstancedMesh.updateCulling(camera);
 ``` 
 
 ## ⬇️ Installation
@@ -94,6 +108,10 @@ Any help is highly appreciated. If you would like to contribute to this package 
 ## ❔ Questions?
 
 If you have questions or need assistance, you can ask on our [discord server](https://discord.gg/MVTwrdX3JM).
+
+## 👀 Future Work
+
+Improve raycast function if **CullingStatic** and other optimisations.
 
 ## ⭐ Like it?
 
