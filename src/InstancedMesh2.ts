@@ -10,7 +10,7 @@ export const CullingStatic = 1;
 export const CullingDynamic = 2;
 
 export interface InstancedMesh2Params<T> {
-  onInstanceCreation: CreateEntityCallback<Entity<T>>;
+  onInstanceCreation?: CreateEntityCallback<Entity<T>>;
   behaviour?: number;
   color?: ColorRepresentation;
   // createEntities?: boolean;
@@ -30,7 +30,6 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     if (geometry === undefined) throw (new Error("geometry is mandatory"));
     if (material === undefined) throw (new Error("material is mandatory"));
     if (count === undefined) throw (new Error("count is mandatory"));
-    if (config?.onInstanceCreation === undefined) throw (new Error("onInstanceCreation is mandatory"));
 
     super(geometry, material, count);
 
@@ -49,8 +48,10 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     for (let i = 0; i < count; i++) {
       const instance = new InstancedEntity(this, i, color) as Entity<T>;
 
-      onInstanceCreation(instance, i);
-      instance.forceUpdateMatrix();
+      if (onInstanceCreation) {
+        onInstanceCreation(instance, i);
+        instance.forceUpdateMatrix();
+      }
 
       this._sortedInstances[i] = instance;
       this.instances[i] = instance;
@@ -116,8 +117,6 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     if (show.length > hide.length) this.showInstances(show, length);
     else if (show.length < hide.length) this.hideInstances(hide, hide.length - length);
-
-    this.needsUpdate();
   }
 
   private showInstances(entities: Entity<T>[], count: number): void {
@@ -169,10 +168,10 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     const temp = instanceTo.matrixArray;
     instanceTo.matrixArray = instanceFrom.matrixArray;
     instanceFrom.matrixArray = temp;
-    
+
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
-    
+
     this._sortedInstances[idTo] = instanceFrom;
     this._sortedInstances[idFrom] = instanceTo;
 
@@ -219,7 +218,18 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     // console.timeEnd("culling");
 
-    if (_show.length > 0 || _hide.length > 0) this.setInstancesVisibility(_show, _hide);
+    if (_show.length > 0 || _hide.length > 0) {
+      this.setInstancesVisibility(_show, _hide);
+      
+      if (this._behaviour === CullingStatic) {
+        this.needsUpdate();
+      }
+    }
+
+    if (this._behaviour === CullingDynamic) {
+      //this can be improved
+      this.needsUpdate();
+    }
   }
 
   private checkDynamicFrustum(camera: Camera, show: Entity<T>[], hide: Entity<T>[]): void {

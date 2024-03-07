@@ -27,7 +27,7 @@ myInstancedMesh.instances[1].rotateX(Math.PI);
 myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
 ```
 
-This library has only one dependency: `three.js r151+`.
+This library has only one dependency: `three.js r159+`.
 
 ## 🔑 Key Features 
 
@@ -92,7 +92,9 @@ Or you can import it from CDN:
 
 These examples use `vite`, and some mobile devices may run out of memory.
 
-- [Forest with 1kk trees](https://stackblitz.com/edit/three-ez-instancedmesh2-forest-1kk-trees?file=src%2Fmain.ts)
+- [CullingStatic 1kk Forest](https://stackblitz.com/edit/three-ez-instancedmesh2-cullingstatic-1kk-forest?file=src%2Fmain.ts)
+- [CullingDynamic 150k](https://stackblitz.com/edit/three-ez-instancedmesh2-cullingdynamic-150k?file=src%2Fmain.ts)
+- [CullingStatic Custom Attribute](https://stackblitz.com/edit/three-ez-instancedmesh2-cullingstatic-custom-attribute?file=src%2Fmain.ts)
 
 ## 📚 Documentation
 
