@@ -241,6 +241,7 @@ export class InstancedMeshBVH {
 
     if (this._projScreenMatrixCache.equals(_projScreenMatrix)) return;
     this._projScreenMatrixCache.copy(_projScreenMatrix);
+    console.time("culling");
 
     this._show = show;
     this._hide = hide;
@@ -250,6 +251,7 @@ export class InstancedMeshBVH {
 
     this._show = undefined;
     this._hide = undefined;
+    console.timeEnd("culling");
   }
 
   private checkBoxVisibility(node: Node, force?: VisibilityState): void {
