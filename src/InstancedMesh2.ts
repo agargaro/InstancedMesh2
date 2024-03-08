@@ -148,10 +148,6 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     this.swapAttributes(idFrom, idTo);
 
-    const temp = instanceTo.matrixArray;
-    instanceTo.matrixArray = instanceFrom.matrixArray;
-    instanceFrom.matrixArray = temp;
-
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
 
@@ -165,16 +161,11 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     this.swapAttributes(idFrom, idTo);
 
-    const temp = instanceTo.matrixArray;
-    instanceTo.matrixArray = instanceFrom.matrixArray;
-    instanceFrom.matrixArray = temp;
-
     instanceTo._internalId = idFrom;
     instanceFrom._internalId = idTo;
 
     this._sortedInstances[idTo] = instanceFrom;
     this._sortedInstances[idFrom] = instanceTo;
-
   }
 
   private swapAttributes(idFrom: number, idTo: number): void {
@@ -200,6 +191,54 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     }
   }
 
+  /** @internal @LASTREV 162 Matrix4 */
+  public composeToArray(position: Vector3, scale: Vector3, quaternion: any, index: number): void {
+    const te = this.instanceMatrix.array;
+    const offset = index * 16;
+
+    const x = quaternion._x,
+      y = quaternion._y,
+      z = quaternion._z,
+      w = quaternion._w;
+    const x2 = x + x,
+      y2 = y + y,
+      z2 = z + z;
+    const xx = x * x2,
+      xy = x * y2,
+      xz = x * z2;
+    const yy = y * y2,
+      yz = y * z2,
+      zz = z * z2;
+    const wx = w * x2,
+      wy = w * y2,
+      wz = w * z2;
+
+    const sx = scale.x,
+      sy = scale.y,
+      sz = scale.z;
+
+    te[offset + 0] = (1 - (yy + zz)) * sx;
+    te[offset + 1] = (xy + wz) * sx;
+    te[offset + 2] = (xz - wy) * sx;
+    te[offset + 3] = 0;
+
+    te[offset + 4] = (xy - wz) * sy;
+    te[offset + 5] = (1 - (xx + zz)) * sy;
+    te[offset + 6] = (yz + wx) * sy;
+    te[offset + 7] = 0;
+
+    te[offset + 8] = (xz + wy) * sz;
+    te[offset + 9] = (yz - wx) * sz;
+    te[offset + 10] = (1 - (xx + yy)) * sz;
+    te[offset + 11] = 0;
+
+    te[offset + 12] = position.x;
+    te[offset + 13] = position.y;
+    te[offset + 14] = position.z;
+    te[offset + 15] = 1;
+  }
+
+
   public updateCulling(camera: Camera): void {
     //put it on beforeRenderer is not possibile
 
@@ -220,7 +259,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
 
     if (_show.length > 0 || _hide.length > 0) {
       this.setInstancesVisibility(_show, _hide);
-      
+
       if (this._behaviour === CullingStatic) {
         this.needsUpdate();
       }
@@ -250,7 +289,7 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
       _sphere.radius = radius * this.getMax(instance.scale);
 
       if (instance._inFrustum !== (instance._inFrustum = _frustum.intersectsSphere(_sphere))) {
-        if (instance._inFrustum === true) show.push(instance);
+        if (instance._inFrustum) show.push(instance);
         else hide.push(instance);
       }
 

@@ -30,6 +30,8 @@ export class InstancedMeshBVH {
   protected _frustum = new Frustum();
   protected _show: InstancedEntity[];
   protected _hide: InstancedEntity[];
+  protected _projScreenMatrixCache = new Matrix4();
+
 
   constructor(instancedMesh: InstancedMesh2) {
     this._target = instancedMesh;
@@ -235,12 +237,15 @@ export class InstancedMeshBVH {
   }
 
   public updateCulling(camera: Camera, show: InstancedEntity[], hide: InstancedEntity[]): void {
+    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+
+    if (this._projScreenMatrixCache.equals(_projScreenMatrix)) return;
+    this._projScreenMatrixCache.copy(_projScreenMatrix);
+
     this._show = show;
     this._hide = hide;
 
-    _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
-
     this.checkBoxVisibility(this.root);
 
     this._show = undefined;

@@ -2,9 +2,7 @@ import { Color, ColorRepresentation, Matrix4, Quaternion, Vector3 } from 'three'
 import { InstancedMesh2 } from './InstancedMesh2';
 
 export class InstancedEntity {
-  public type = 'InstancedEntity';
   public isInstanceEntity = true;
-  public matrixArray: Float32Array;
   public readonly parent: InstancedMesh2;
   public readonly id: number;
   public readonly position: Vector3;
@@ -27,14 +25,14 @@ export class InstancedEntity {
 
   public get matrix(): Matrix4 {
     if (this._matrixNeedsUpdate) this.forceUpdateMatrix();
-    return _m.fromArray(this.matrixArray);
+    this.parent.getMatrixAt(this._internalId, _m);
+    return _m;
   }
 
   constructor(parent: InstancedMesh2, index: number, color?: ColorRepresentation) {
     this.id = index;
     this._internalId = index;
     this.parent = parent;
-    this.matrixArray = new Float32Array(parent.instanceMatrix.array.buffer, index * 16 * 4, 16);
 
     if (color !== undefined) this.setColor(color);
 
@@ -52,57 +50,8 @@ export class InstancedEntity {
   }
 
   public forceUpdateMatrix(): void {
-    this.composeToArray();
+    this.parent.composeToArray(this.position, this.scale, this.quaternion, this._internalId);
     this._matrixNeedsUpdate = false;
-  }
-
-  /** @internal @LASTREV 162 Matrix4 */
-  protected composeToArray(): void {
-    const te = this.matrixArray;
-    const position = this.position;
-    const quaternion = this.quaternion as any;
-    const scale = this.scale;
-
-    const x = quaternion._x,
-      y = quaternion._y,
-      z = quaternion._z,
-      w = quaternion._w;
-    const x2 = x + x,
-      y2 = y + y,
-      z2 = z + z;
-    const xx = x * x2,
-      xy = x * y2,
-      xz = x * z2;
-    const yy = y * y2,
-      yz = y * z2,
-      zz = z * z2;
-    const wx = w * x2,
-      wy = w * y2,
-      wz = w * z2;
-
-    const sx = scale.x,
-      sy = scale.y,
-      sz = scale.z;
-
-    te[0] = (1 - (yy + zz)) * sx;
-    te[1] = (xy + wz) * sx;
-    te[2] = (xz - wy) * sx;
-    te[3] = 0;
-
-    te[4] = (xy - wz) * sy;
-    te[5] = (1 - (xx + zz)) * sy;
-    te[6] = (yz + wx) * sy;
-    te[7] = 0;
-
-    te[8] = (xz + wy) * sz;
-    te[9] = (yz - wx) * sz;
-    te[10] = (1 - (xx + yy)) * sz;
-    te[11] = 0;
-
-    te[12] = position.x;
-    te[13] = position.y;
-    te[14] = position.z;
-    te[15] = 1;
   }
 
   public setColor(color: ColorRepresentation): void {
