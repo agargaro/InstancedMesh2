@@ -1,11 +1,4 @@
-import { Matrix4, Plane, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
-
-/** @internal */
-export enum VisibilityState {
-  in,
-  intersect,
-  out
-}
+import { Matrix4, Plane, Vector3, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
 
 /** @internal @LASTREV 162 Frustum */
 export class Frustum {
@@ -40,35 +33,58 @@ export class Frustum {
     return this;
   }
 
-  public intesectsBox(box: Float32Array): VisibilityState {
+  /** returns 0 = intersect, 1 = in, 2 out. */
+  public intesectsBox(box: Float32Array): number {
     const planes = this.planes;
-    let result = VisibilityState.in;
+    let xMin: number, yMin: number, zMin: number, xMax: number, yMax: number, zMax: number;
+    let plane: Plane, planeNormal: Vector3;
 
     for (let i = 0; i < 6; i++) {
-      const plane = planes[i];
+      plane = planes[i];
+      planeNormal = plane.normal;
 
-      const nx = plane.normal.x > 0 ? 1 : 0;
-      const ny = plane.normal.y > 0 ? 1 : 0;
-      const nz = plane.normal.z > 0 ? 1 : 0;
-
-      let dot = (plane.normal.x * this.minMax(box, nx, 0)) + (plane.normal.y * this.minMax(box, ny, 1)) + (plane.normal.z * this.minMax(box, nz, 2));
-
-      if (dot < -plane.constant) {
-        return VisibilityState.out;
+      if (planeNormal.x > 0) {
+        xMin = box[3];
+        xMax = box[0];
+      } else {
+        xMin = box[0];
+        xMax = box[3];
       }
 
-      if (result === VisibilityState.intersect) continue;
+      if (planeNormal.y > 0) {
+        yMin = box[4];
+        yMax = box[1];
+      } else {
+        yMin = box[1];
+        yMax = box[4];
+      }
 
-      dot = (plane.normal.x * this.minMax(box, 1 - nx, 0)) + (plane.normal.y * this.minMax(box, 1 - ny, 1)) + (plane.normal.z * this.minMax(box, 1 - nz, 2));
+      if (planeNormal.z > 0) {
+        zMin = box[5];
+        zMax = box[2];
+      } else {
+        zMin = box[2];
+        zMax = box[5];
+      }
 
-      if (dot <= -plane.constant)
-        result = VisibilityState.intersect;
+      if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return 2;
+
+      if ((planeNormal.x * xMax) + (planeNormal.y * yMax) + (planeNormal.z * zMax) <= -plane.constant) { // intersect
+        while (++i < 6) {
+          plane = planes[i];
+          planeNormal = plane.normal;
+
+          xMin = planeNormal.x > 0 ? box[3] : box[0];
+          yMin = planeNormal.y > 0 ? box[4] : box[1];
+          zMin = planeNormal.z > 0 ? box[5] : box[2];
+
+          if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return 2;
+        }
+
+        return 0;
+      }
     }
-
-    return result;
-  }
-
-  private minMax(box: Float32Array, index: number, axis: number): number {
-    return index === 0 ? box[axis] : box[axis + 3];
+    
+    return 1;
   }
 }

@@ -1,12 +1,12 @@
 import { Box3, Camera, Matrix4 } from 'three';
 import { InstancedEntity } from './InstancedEntity';
 import { InstancedMesh2 } from './InstancedMesh2';
-import { Frustum, VisibilityState } from './Frustum';
+import { Frustum } from './Frustum';
 
 /** @internal */
 export interface Node {
   bbox: Float32Array;
-  visibility: VisibilityState;
+  visibility: number; // 0 = intersect, 1 = in, 2 = out
   left?: Node;
   right?: Node;
   leaves?: InstancedEntity[];
@@ -45,7 +45,7 @@ export class InstancedMeshBVH {
     const bbox = this.setup();
     console.timeEnd("setup...");
 
-    this.root = { bbox, visibility: VisibilityState.in };
+    this.root = { bbox, visibility: 1 }; // 1 = in
 
     console.time("bvh...");
     this.buildNode(this.root, 0, this._target.instances.length, 0);
@@ -130,8 +130,8 @@ export class InstancedMeshBVH {
       return;
     }
 
-    node.left = { bbox: bboxLeft, visibility: VisibilityState.in };
-    node.right = { bbox: bboxRight, visibility: VisibilityState.in };
+    node.left = { bbox: bboxLeft, visibility: 1 }; // 1 = in
+    node.right = { bbox: bboxRight, visibility: 1 }; // 1 = in
 
     this.buildNode(node.left, offset, leftEndOffset - offset, depth);
     this.buildNode(node.right, leftEndOffset, count - leftEndOffset + offset, depth);
@@ -254,25 +254,25 @@ export class InstancedMeshBVH {
     // console.timeEnd("culling");
   }
 
-  private checkBoxVisibility(node: Node, force?: VisibilityState): void {
+  private checkBoxVisibility(node: Node, force?: number): void {
     const visibility = force ?? this._frustum.intesectsBox(node.bbox);
 
-    if (visibility === VisibilityState.intersect || visibility !== node.visibility) {
+    if (visibility === 0 || visibility !== node.visibility) { // 0 = intersect
 
       if (node.leaves) {
-        if (node.visibility === VisibilityState.out) { //todo remove this enum
+        if (node.visibility === 2) { // 2 = out
           const leaves = node.leaves;
           for (let i = 0, l = leaves.length; i < l; i++) {
             if (leaves[i]._visible) this._show.push(leaves[i]); 
           }
-        } else if (visibility === VisibilityState.out) {
+        } else if (visibility === 2) { // 2 = out
           const leaves = node.leaves;
           for (let i = 0, l = leaves.length; i < l; i++) {
             if (leaves[i]._visible) this._hide.push(leaves[i]); 
           }
         }
       } else {
-        const force = visibility === VisibilityState.intersect ? undefined : visibility;
+        const force = visibility === 0 ? undefined : visibility;  // 0 = intersect
         this.checkBoxVisibility(node.left, force);
         this.checkBoxVisibility(node.right, force);
       }

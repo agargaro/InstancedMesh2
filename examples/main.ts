@@ -6,8 +6,8 @@ import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { CullingStatic, InstancedMesh2 } from '../src/InstancedMesh2';
 
-const count = 1000000;
-const terrainSize = 200000;
+const count = 500000;
+const terrainSize = 5000;
 
 const main = new Main({ rendererParameters: { antialias: true } }); // init renderer and other stuff
 main.renderer.toneMapping = ACESFilmicToneMapping;
@@ -18,7 +18,7 @@ const scene = new Scene();
 
 const treeGLTF = (await Asset.load<GLTF>(GLTFLoader, '../tree.glb')).scene.children[0] as Mesh<BufferGeometry, MeshStandardMaterial>;
 
-const trees = new InstancedMesh2(treeGLTF.geometry, treeGLTF.material, count, {
+const trees = new InstancedMesh2(new PlaneGeometry(), treeGLTF.material, count, {
   behaviour: CullingStatic,
   onInstanceCreation: (obj, index) => {
     obj.position.setX(Math.random() * terrainSize - terrainSize / 2).setZ(Math.random() * terrainSize - terrainSize / 2);
