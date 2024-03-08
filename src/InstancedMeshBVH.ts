@@ -6,7 +6,7 @@ import { Frustum } from './Frustum';
 /** @internal */
 export interface Node {
   bbox: Float32Array;
-  visibility: number; // 0 = intersect, 1 = in, 2 = out
+  visibility: number; // -1 = OUT, 0 = IN, > 0 = INTERSECT.
   left?: Node;
   right?: Node;
   leaves?: InstancedEntity[];
@@ -22,6 +22,7 @@ export enum SplitType {
 /** @internal */
 export class InstancedMeshBVH {
   public root: Node;
+  public verbose = false;
   protected _target: InstancedMesh2;
   protected _maxLeaves: number;
   protected _maxDepth: number;
@@ -31,7 +32,6 @@ export class InstancedMeshBVH {
   protected _show: InstancedEntity[];
   protected _hide: InstancedEntity[];
   protected _projScreenMatrixCache = new Matrix4();
-
 
   constructor(instancedMesh: InstancedMesh2) {
     this._target = instancedMesh;
@@ -45,7 +45,7 @@ export class InstancedMeshBVH {
     const bbox = this.setup();
     console.timeEnd("setup...");
 
-    this.root = { bbox, visibility: 1 }; // 1 = in
+    this.root = { bbox, visibility: 0 }; // 0 = in
 
     console.time("bvh...");
     this.buildNode(this.root, 0, this._target.instances.length, 0);
@@ -130,8 +130,8 @@ export class InstancedMeshBVH {
       return;
     }
 
-    node.left = { bbox: bboxLeft, visibility: 1 }; // 1 = in
-    node.right = { bbox: bboxRight, visibility: 1 }; // 1 = in
+    node.left = { bbox: bboxLeft, visibility: 0 }; // 0 = in
+    node.right = { bbox: bboxRight, visibility: 0 }; // 0 = in
 
     this.buildNode(node.left, offset, leftEndOffset - offset, depth);
     this.buildNode(node.right, leftEndOffset, count - leftEndOffset + offset, depth);
@@ -241,40 +241,40 @@ export class InstancedMeshBVH {
 
     if (this._projScreenMatrixCache.equals(_projScreenMatrix)) return;
     this._projScreenMatrixCache.copy(_projScreenMatrix);
-    // console.time("culling");
+    this.verbose && console.time("culling");
 
     this._show = show;
     this._hide = hide;
 
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
-    this.checkBoxVisibility(this.root);
+    this.checkBoxVisibility(this.root, 0b111111);
 
     this._show = undefined;
     this._hide = undefined;
-    // console.timeEnd("culling");
+    this.verbose && console.timeEnd("culling");
   }
 
-  private checkBoxVisibility(node: Node, force?: number): void {
-    const visibility = force ?? this._frustum.intesectsBox(node.bbox);
+  private checkBoxVisibility(node: Node, mask: number, force?: number): void {
+    const visibility = force ?? (mask = this._frustum.intesectsBoxMask(node.bbox, mask));
 
-    if (visibility === 0 || visibility !== node.visibility) { // 0 = intersect
+    if (visibility >= 1 || visibility !== node.visibility) { // 1 = intersect
 
       if (node.leaves) {
-        if (node.visibility === 2) { // 2 = out
+        if (node.visibility === -1) { // -1 = out
           const leaves = node.leaves;
           for (let i = 0, l = leaves.length; i < l; i++) {
-            if (leaves[i]._visible) this._show.push(leaves[i]); 
+            if (leaves[i]._visible) this._show.push(leaves[i]);
           }
-        } else if (visibility === 2) { // 2 = out
+        } else if (visibility === -1) { // -1 = out
           const leaves = node.leaves;
           for (let i = 0, l = leaves.length; i < l; i++) {
-            if (leaves[i]._visible) this._hide.push(leaves[i]); 
+            if (leaves[i]._visible) this._hide.push(leaves[i]);
           }
         }
       } else {
-        const force = visibility === 0 ? undefined : visibility;  // 0 = intersect
-        this.checkBoxVisibility(node.left, force);
-        this.checkBoxVisibility(node.right, force);
+        const force = visibility >= 1 ? undefined : visibility;  // 1 = intersect
+        this.checkBoxVisibility(node.left, mask, force);
+        this.checkBoxVisibility(node.right, mask, force);
       }
 
       node.visibility = visibility;

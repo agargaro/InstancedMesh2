@@ -33,7 +33,7 @@ export class Frustum {
     return this;
   }
 
-  /** returns 0 = intersect, 1 = in, 2 out. */
+  /** returns -1 = OUT, 0 = IN, > 0 = INTERSECT. */
   public intesectsBox(box: Float32Array): number {
     const planes = this.planes;
     let xMin: number, yMin: number, zMin: number, xMax: number, yMax: number, zMax: number;
@@ -67,7 +67,7 @@ export class Frustum {
         zMax = box[5];
       }
 
-      if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return 2;
+      if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return -1;
 
       if ((planeNormal.x * xMax) + (planeNormal.y * yMax) + (planeNormal.z * zMax) <= -plane.constant) { // intersect
         while (++i < 6) {
@@ -78,13 +78,58 @@ export class Frustum {
           yMin = planeNormal.y > 0 ? box[4] : box[1];
           zMin = planeNormal.z > 0 ? box[5] : box[2];
 
-          if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return 2;
+          if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return -1;
         }
 
-        return 0;
+        return 1;
       }
     }
-    
-    return 1;
+
+    return 0;
+  }
+
+  /** returns -1 = OUT, 0 = IN, > 0 = INTERSECT. */
+  public intesectsBoxMask(box: Float32Array, mask: number): number {
+    const planes = this.planes;
+    let xMin: number, yMin: number, zMin: number, xMax: number, yMax: number, zMax: number;
+
+    for (let i = 0; i < 6; i++) {
+      if ((mask & (0b100000 >> i)) === 0) continue; // if byte i is 0
+
+      const plane = planes[i];
+      const planeNormal = plane.normal;
+
+      if (planeNormal.x > 0) {
+        xMin = box[3];
+        xMax = box[0];
+      } else {
+        xMin = box[0];
+        xMax = box[3];
+      }
+
+      if (planeNormal.y > 0) {
+        yMin = box[4];
+        yMax = box[1];
+      } else {
+        yMin = box[1];
+        yMax = box[4];
+      }
+
+      if (planeNormal.z > 0) {
+        zMin = box[5];
+        zMax = box[2];
+      } else {
+        zMin = box[2];
+        zMax = box[5];
+      }
+
+      if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return -1; // is out
+
+      if ((planeNormal.x * xMax) + (planeNormal.y * yMax) + (planeNormal.z * zMax) > -plane.constant) { // is full in
+        mask ^= 0b100000 >> i; // set byte i to 0
+      }
+    }
+
+    return mask;
   }
 }
