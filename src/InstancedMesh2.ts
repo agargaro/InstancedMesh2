@@ -254,7 +254,9 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     }
 
     if (_show.length > 0 || _hide.length > 0) {
+      // console.time("swapping");
       this.setInstancesVisibility(_show, _hide);
+      // console.timeEnd("swapping");
 
       if (this._behaviour === CullingStatic) {
         this.needsUpdate();
