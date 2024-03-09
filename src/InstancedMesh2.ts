@@ -2,23 +2,44 @@ import { BufferGeometry, Camera, Color, ColorRepresentation, DynamicDrawUsage, F
 import { InstancedEntity } from './InstancedEntity';
 import { InstancedMeshBVH } from './InstancedMeshBVH';
 
+/** InstancedEntity with custom T data. */
 export type Entity<T> = InstancedEntity & T;
+/** Type of callback invoked after creation of each instance. */
 export type CreateEntityCallback<T> = (obj: Entity<T>, index: number) => void;
 
+/** Frustum culling is disabled, suitable if all instances are always visible in the camera's frustum. */
 export const CullingNone = 0;
+/** Fast frustum culling using a BVH, ideal for static objects (you can only modify instances in `onInstanceCreation` callback). */
 export const CullingStatic = 1;
+/** Individual frustum culling for each instance, necessary for animated meshes. */
 export const CullingDynamic = 2;
 
+/** Configuration for creating an InstancedMesh2 */
 export interface InstancedMesh2Params<T> {
+  /** Determine which strategy to use for frustum culling (can be `CullingNone`, `CullingStatic`, `CullingDynamic`). */
+  behaviour: number;
+  /** Callback invoked after creation of each instance (optional if behaviour is not `CullingStatic`). */
   onInstanceCreation?: CreateEntityCallback<Entity<T>>;
-  behaviour?: number;
+  /** The default color to apply to each instance (optional). */
   color?: ColorRepresentation;
   // createEntities?: boolean;
 }
 
+/** 
+ * Extends the functionality of `InstancedMesh`, providing streamlined control over instance `transformations` and `visibility`, 
+ * while also integrating `frustum culling` for each instance to improve performance. 
+ * @template T - Custom data type.
+ * @template G - Geometry type.
+ * @template M - Material type.
+ */
 export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M extends Material = Material> extends InstancedMesh<G, M> {
   public override type = 'InstancedMesh2';
+  /** A flag indicating that this is an instance of InstancedMesh2. */
   public isInstancedMesh2 = true;
+  /** 
+   * An array storing individual InstancedEntity instances associated with this InstancedMesh2.
+   * Each element represents a separate instance that can be managed individually.
+   */
   public instances: Entity<T>[];
   private _sortedInstances: Entity<T>[];
   /** @internal */ public readonly _perObjectFrustumCulled: boolean;
@@ -26,16 +47,24 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
   private _instancedAttributes: InstancedBufferAttribute[];
   private _bvh: InstancedMeshBVH;
 
+  /**
+   * @param geometry The geometry for the instanced mesh.
+   * @param material The material to apply to the instanced mesh.
+   * @param count The number of instances to create.
+   * @param config Configuration
+   */
   constructor(geometry: G, material: M, count: number, config: InstancedMesh2Params<T>) {
-    if (geometry === undefined) throw (new Error("geometry is mandatory"));
-    if (material === undefined) throw (new Error("material is mandatory"));
-    if (count === undefined) throw (new Error("count is mandatory"));
-
+    if (geometry === undefined) throw (new Error("Geometry is mandatory."));
+    if (material === undefined) throw (new Error("Material is mandatory."));
+    if (count === undefined) throw (new Error("Count is mandatory."));
+    if (config?.behaviour === undefined) throw (new Error("Behaviour is mandatory."));
+    if (config.behaviour === CullingStatic && config.onInstanceCreation === undefined) throw (new Error("OnInstanceCreation is mandatory if behaviour is CullingStatic."));
+ 
     super(geometry, material, count);
 
     const color = config.color !== undefined ? _color.set(config.color) : undefined;
     const onInstanceCreation = config.onInstanceCreation;
-    this._behaviour = config.behaviour ?? CullingStatic;
+    this._behaviour = config.behaviour;
     this._perObjectFrustumCulled = this._behaviour !== CullingNone;
 
     this.instances = new Array(count);
@@ -238,7 +267,12 @@ export class InstancedMesh2<T = {}, G extends BufferGeometry = BufferGeometry, M
     te[offset + 15] = 1;
   }
 
-
+  /**
+   * Updates the visibility of instances based on the camera's frustum.
+   * This method is responsible for determining which instances are within the camera's view and should be rendered,
+   * and which are outside and should be culled to improve performance.
+   * @param camera Camera used for rendering.
+   */
   public updateCulling(camera: Camera): void {
     //put it on beforeRenderer is not possibile
 

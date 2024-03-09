@@ -7,12 +7,12 @@
 [![BundlePhobia](https://badgen.net/bundlephobia/min/@three.ez/instanced-mesh)](https://bundlephobia.com/package/@three.ez/instanced-mesh)
 [![Discord](https://img.shields.io/discord/1150091562227859457)](https://discord.gg/MVTwrdX3JM)
 
-`InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance `transformations` and `visibility`, while also integrating `frustum culling` for enhanced performance.
+`InstancedMesh2` extends the functionality of `InstancedMesh`, providing streamlined control over instance `transformations` and `visibility`, while also integrating `frustum culling` for each instance to improve performance.
 
 ```typescript
 import { CullingDynamic, InstancedMesh2 } from '@three.ez/instanced-mesh';
 
-const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
+const myInstancedMesh = new InstancedMesh2(geometry, material, count, {
   behaviour: CullingDynamic,
   onInstanceCreation: (obj, index) => {
     obj.position.random();
@@ -24,7 +24,8 @@ const myInstancedMesh = new InstancedMesh2(geometry, material, 100000, {
 myInstancedMesh.instances[0].visible = false;
 
 myInstancedMesh.instances[1].rotateX(Math.PI);
-myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
+myInstancedMesh.instances[1].position.x += 1;
+myInstancedMesh.instances[1].updateMatrix(); // necessary after transformations
 ```
 
 This library has only one dependency: `three.js r159+`.
@@ -43,13 +44,13 @@ myInstancedMesh.instances[0].customData = {};
 myInstancedMesh.instances[1].position.random();
 myInstancedMesh.instances[1].quaternion.random();
 myInstancedMesh.instances[1].scale.random();
-myInstancedMesh.instances[1].updateMatrix(); // necessary after transformation
+myInstancedMesh.instances[1].updateMatrix(); // necessary after transformations
 ```     
 
 ### 🎥 Frustum Culling
 InstancedMesh2 offers three different behaviors for frustum culling:
 - **CullingNone**: Frustum culling is disabled, suitable if all instances are always visible in the camera's frustum.
-- **CullingStatic**: Fast frustum culling using a BVH, ideal for static objects.
+- **CullingStatic**: Fast frustum culling using a BVH, ideal for static objects (you can only modify instances in `onInstanceCreation` callback).
 - **CullingDynamic**: Individual frustum culling for each instance, necessary for animated meshes.
 
 ```typescript
@@ -98,7 +99,6 @@ These examples use `vite`, and some mobile devices may run out of memory.
 
 ## 📚 Documentation
 
-The tutorial is available [here](https://agargaro.github.io/three.ez/docs/tutorial) *(work in progress)*. <br />
 The API documentation is available [here](https://agargaro.github.io/three.ez/docs/api). 
 
 ## 🤝 Contributing
@@ -111,7 +111,9 @@ If you have questions or need assistance, you can ask on our [discord server](ht
 
 ## 👀 Future Work
 
-Improve raycast function if **CullingStatic** and other optimizations.
+BVH customization
+Dynamic BVH
+Sorting support
 
 ## ⭐ Like it?
 
