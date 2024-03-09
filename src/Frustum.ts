@@ -1,4 +1,4 @@
-import { Matrix4, Plane, Vector3, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
+import { Matrix4, Plane, WebGLCoordinateSystem, WebGPUCoordinateSystem } from "three";
 
 /** @internal @LASTREV 162 Frustum */
 export class Frustum {
@@ -71,9 +71,9 @@ export class Frustum {
 
       if ((px * xMin) + (py * yMin) + (pz * zMin) < -planeConstant) {
         return -1; // is out
-      } 
+      }
 
-      if ((px * xMax) + (py * yMax) + (pz * zMax) > -planeConstant) { 
+      if ((px * xMax) + (py * yMax) + (pz * zMax) > -planeConstant) {
         mask ^= 0b100000 >> i; // is full in, set byte i to 0
       }
     }
