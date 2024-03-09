@@ -96,10 +96,11 @@ export class Frustum {
     for (let i = 0; i < 6; i++) {
       if ((mask & (0b100000 >> i)) === 0) continue; // if byte i is 0
 
-      const plane = planes[i];
-      const planeNormal = plane.normal;
+      const planeNormal = planes[i].normal;
+      const planeConstant = planes[i].constant;
+      const px = planeNormal.x, py = planeNormal.y, pz = planeNormal.z;
 
-      if (planeNormal.x > 0) {
+      if (px > 0) {
         xMin = box[3];
         xMax = box[0];
       } else {
@@ -107,7 +108,7 @@ export class Frustum {
         xMax = box[3];
       }
 
-      if (planeNormal.y > 0) {
+      if (py > 0) {
         yMin = box[4];
         yMax = box[1];
       } else {
@@ -115,7 +116,7 @@ export class Frustum {
         yMax = box[4];
       }
 
-      if (planeNormal.z > 0) {
+      if (pz > 0) {
         zMin = box[5];
         zMax = box[2];
       } else {
@@ -123,10 +124,12 @@ export class Frustum {
         zMax = box[5];
       }
 
-      if ((planeNormal.x * xMin) + (planeNormal.y * yMin) + (planeNormal.z * zMin) < -plane.constant) return -1; // is out
+      if ((px * xMin) + (py * yMin) + (pz * zMin) < -planeConstant) {
+        return -1; // is out
+      } 
 
-      if ((planeNormal.x * xMax) + (planeNormal.y * yMax) + (planeNormal.z * zMax) > -plane.constant) { // is full in
-        mask ^= 0b100000 >> i; // set byte i to 0
+      if ((px * xMax) + (py * yMax) + (pz * zMax) > -planeConstant) { 
+        mask ^= 0b100000 >> i; // is full in, set byte i to 0
       }
     }
 

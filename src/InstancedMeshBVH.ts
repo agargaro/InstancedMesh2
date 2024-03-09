@@ -6,7 +6,7 @@ import { Frustum } from './Frustum';
 /** @internal */
 export interface Node {
   bbox: Float32Array;
-  visibility: number; // -1 = OUT, 0 = IN, > 0 = INTERSECT.
+  visibilityMask: number; // -1 = OUT, 0 = IN, > 0 = INTERSECT.
   left?: Node;
   right?: Node;
   leaves?: InstancedEntity[];
@@ -22,7 +22,7 @@ export enum SplitType {
 /** @internal */
 export class InstancedMeshBVH {
   public root: Node;
-  public verbose = false;
+  public verbose = true;
   protected _target: InstancedMesh2;
   protected _maxLeaves: number;
   protected _maxDepth: number;
@@ -45,7 +45,7 @@ export class InstancedMeshBVH {
     const bbox = this.setup();
     console.timeEnd("setup...");
 
-    this.root = { bbox, visibility: 0 }; // 0 = in
+    this.root = { bbox, visibilityMask: 0 }; // 0 = in
 
     console.time("bvh...");
     this.buildNode(this.root, 0, this._target.instances.length, 0);
@@ -130,8 +130,8 @@ export class InstancedMeshBVH {
       return;
     }
 
-    node.left = { bbox: bboxLeft, visibility: 0 }; // 0 = in
-    node.right = { bbox: bboxRight, visibility: 0 }; // 0 = in
+    node.left = { bbox: bboxLeft, visibilityMask: 0 }; // 0 = in
+    node.right = { bbox: bboxRight, visibilityMask: 0 }; // 0 = in
 
     this.buildNode(node.left, offset, leftEndOffset - offset, depth);
     this.buildNode(node.right, leftEndOffset, count - leftEndOffset + offset, depth);
@@ -149,7 +149,7 @@ export class InstancedMeshBVH {
   }
 
   private getLongestAxis(bbox: Float32Array): number {
-    const xSize = bbox[3] - bbox[0];
+    const xSize = bbox[3] - bbox[0]; //todo set min and max near
     const ySize = bbox[4] - bbox[1];
     const zSize = bbox[5] - bbox[2];
     if (xSize > ySize) return xSize > zSize ? 0 : 2;
@@ -247,20 +247,20 @@ export class InstancedMeshBVH {
     this._hide = hide;
 
     this._frustum.setFromProjectionMatrix(_projScreenMatrix);
-    this.checkBoxVisibility(this.root, 0b111111);
+    this.traverseVisibility(this.root, 0b111111);
 
     this._show = undefined;
     this._hide = undefined;
     this.verbose && console.timeEnd("culling");
   }
 
-  private checkBoxVisibility(node: Node, mask: number, force?: number): void {
+  private traverseVisibility2(node: Node, mask: number, force?: number): void {
     const visibility = force ?? (mask = this._frustum.intesectsBoxMask(node.bbox, mask));
 
-    if (visibility >= 1 || visibility !== node.visibility) { // 1 = intersect
+    if (visibility >= 1 || visibility !== node.visibilityMask) { // 1 = intersect
 
       if (node.leaves) {
-        if (node.visibility === -1) { // -1 = out
+        if (node.visibilityMask === -1) { // -1 = out
           const leaves = node.leaves;
           for (let i = 0, l = leaves.length; i < l; i++) {
             if (leaves[i]._visible) this._show.push(leaves[i]);
@@ -273,12 +273,75 @@ export class InstancedMeshBVH {
         }
       } else {
         const force = visibility >= 1 ? undefined : visibility;  // 1 = intersect
-        this.checkBoxVisibility(node.left, mask, force);
-        this.checkBoxVisibility(node.right, mask, force);
+        this.traverseVisibility2(node.left, mask, force);
+        this.traverseVisibility2(node.right, mask, force);
       }
 
-      node.visibility = visibility;
+      node.visibilityMask = visibility;
     }
+  }
+
+  private traverseVisibility(node: Node, mask: number): void {
+    mask = this._frustum.intesectsBoxMask(node.bbox, mask);
+
+    if (mask >= 1) { // 1+ = intersect
+      if (node.leaves === undefined) {
+        this.traverseVisibility(node.left, mask);
+        this.traverseVisibility(node.right, mask);
+      } else {
+        this.setIntersectionVisibility(node);
+        // manca se intersection e il nodo è attualmente non visibile
+      }
+    } else if (mask === 0) { // 0 = in
+      this.showAll(node);
+    } else { // -1 = out
+      this.hideAll(node);
+    }
+  }
+
+  private setIntersectionVisibility(node: Node): void {
+    if (node.visibilityMask === -1) { // -1 = out
+      const leaves = node.leaves;
+      for (let i = 0, l = leaves.length; i < l; i++) {
+        if (leaves[i]._visible) this._show.push(leaves[i]);
+      }
+
+      node.visibilityMask = 1; // 1+ = intersec
+    }
+  }
+
+  private showAll(node: Node): void {
+    if (node.visibilityMask === 0) return; // 0 = in
+
+    if (node.leaves !== undefined) {
+      if (node.visibilityMask === -1) { // -1 = out
+        const leaves = node.leaves;
+        for (let i = 0, l = leaves.length; i < l; i++) {
+          if (leaves[i]._visible) this._show.push(leaves[i]);
+        }
+      }
+    } else {
+      this.showAll(node.left);
+      this.showAll(node.right);
+    }
+
+    node.visibilityMask = 0; // 0 = in
+  }
+
+  private hideAll(node: Node): void {
+    if (node.visibilityMask === -1) return; // -1 = out
+
+    if (node.leaves !== undefined) {
+      const leaves = node.leaves;
+      for (let i = 0, l = leaves.length; i < l; i++) {
+        if (leaves[i]._visible) this._hide.push(leaves[i]);
+      }
+    } else {
+      this.hideAll(node.left);
+      this.hideAll(node.right);
+    }
+
+    node.visibilityMask = -1; // -1 = out
   }
 }
 
