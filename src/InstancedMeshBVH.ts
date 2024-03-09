@@ -22,7 +22,7 @@ export enum SplitType {
 /** @internal */
 export class InstancedMeshBVH {
   public root: Node;
-  public verbose = true;
+  public verbose = false;
   protected _target: InstancedMesh2;
   protected _maxLeaves: number;
   protected _maxDepth: number;
@@ -286,11 +286,11 @@ export class InstancedMeshBVH {
 
     if (mask >= 1) { // 1+ = intersect
       if (node.leaves === undefined) {
+        node.visibilityMask = 1;
         this.traverseVisibility(node.left, mask);
         this.traverseVisibility(node.right, mask);
       } else {
         this.setIntersectionVisibility(node);
-        // manca se intersection e il nodo è attualmente non visibile
       }
     } else if (mask === 0) { // 0 = in
       this.showAll(node);
@@ -306,7 +306,7 @@ export class InstancedMeshBVH {
         if (leaves[i]._visible) this._show.push(leaves[i]);
       }
 
-      node.visibilityMask = 1; // 1+ = intersec
+      node.visibilityMask = 0; // 0 = in
     }
   }
 
@@ -314,11 +314,9 @@ export class InstancedMeshBVH {
     if (node.visibilityMask === 0) return; // 0 = in
 
     if (node.leaves !== undefined) {
-      if (node.visibilityMask === -1) { // -1 = out
-        const leaves = node.leaves;
-        for (let i = 0, l = leaves.length; i < l; i++) {
-          if (leaves[i]._visible) this._show.push(leaves[i]);
-        }
+      const leaves = node.leaves;
+      for (let i = 0, l = leaves.length; i < l; i++) {
+        if (leaves[i]._visible) this._show.push(leaves[i]);
       }
     } else {
       this.showAll(node.left);
