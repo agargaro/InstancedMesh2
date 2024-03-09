@@ -27,7 +27,7 @@ export class Frustum {
     } else if (coordinateSystem === WebGPUCoordinateSystem) {
       planes[5].setComponents(me2, me6, me10, me14).normalize();
     } else {
-      throw new Error('THREE.Frustum.setFromProjectionMatrix(): Invalid coordinate system: ' + coordinateSystem);
+      throw new Error('Frustum.setFromProjectionMatrix(): Invalid coordinate system: ' + coordinateSystem);
     }
 
     return this;
