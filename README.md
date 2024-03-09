@@ -24,7 +24,6 @@ const myInstancedMesh = new InstancedMesh2(geometry, material, count, {
 myInstancedMesh.instances[0].visible = false;
 
 myInstancedMesh.instances[1].rotateX(Math.PI);
-myInstancedMesh.instances[1].position.x += 1;
 myInstancedMesh.instances[1].updateMatrix(); // necessary after transformations
 ```
 
@@ -39,12 +38,12 @@ You can easily modify visibility, apply transformations, and add custom data to 
 ```typescript
 myInstancedMesh.instances[0].visible = false;
 
-myInstancedMesh.instances[0].customData = {};
+myInstancedMesh.instances[1].customData = {};
 
-myInstancedMesh.instances[1].position.random();
-myInstancedMesh.instances[1].quaternion.random();
-myInstancedMesh.instances[1].scale.random();
-myInstancedMesh.instances[1].updateMatrix(); // necessary after transformations
+myInstancedMesh.instances[2].position.random();
+myInstancedMesh.instances[2].quaternion.random();
+myInstancedMesh.instances[2].scale.random();
+myInstancedMesh.instances[2].updateMatrix(); // necessary after transformations
 ```     
 
 ### 🎥 Frustum Culling
@@ -111,12 +110,15 @@ If you have questions or need assistance, you can ask on our [discord server](ht
 
 ## 👀 Future Work
 
-BVH customization
-Dynamic BVH
-Sorting support
+- BVH customization
+- Dynamic BVH
+- Sorting support
+- Improve raycasting if CullingStatic
 
 ## ⭐ Like it?
 
 If you find this project helpful, I would greatly appreciate it if you could leave a star on this repository! <br />
 This helps me know that you appreciate my work and encourages me to continue improving it. <br />
 Thank you so much for your support! 🌟
+
+Special thanks to [three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh).
