@@ -1,3 +1,5 @@
+This has been moved to main repository: [https://github.com/agargaro/three.ez](https://github.com/agargaro/three.ez)
+
 # three.ez - InstancedMesh2
 
 [![npm](https://img.shields.io/npm/v/@three.ez/instanced-mesh)](https://www.npmjs.com/package/@three.ez/instanced-mesh)
